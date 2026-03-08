@@ -28,7 +28,12 @@
       };
     });
 
-    devShells = eachSystem (pkgs: {default = pkgs.mkShell {packages = [pkgs.cargo (formatter pkgs)];};});
+    devShells = eachSystem (pkgs: {
+      default = pkgs.mkShell {
+        packages = with pkgs; [cargo libxkbcommon pkg-config (formatter pkgs)];
+        LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.wayland];
+      };
+    });
 
     formatter = eachSystem formatter;
   };
