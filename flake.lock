@@ -1,5 +1,37 @@
 {
   "nodes": {
+    "cargo-hot": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1764969190,
+        "narHash": "sha256-t6+dTBKiFf23qSc2FWSrHzUgIW+uanffUfc5nJACKTs=",
+        "owner": "hecrj",
+        "repo": "cargo-hot",
+        "rev": "2c10fbc28d268211eaf6ea2473e3dc0a37dbfda9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "hecrj",
+        "repo": "cargo-hot",
+        "type": "github"
+      }
+    },
+    "comet": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1771333437,
+        "narHash": "sha256-aefw4FK40Nu7+hOJ0geOpYg/XXFEFmdCD3x2xrVEHVk=",
+        "owner": "iced-rs",
+        "repo": "comet",
+        "rev": "fbef808eed51562f0ea601d8fc7c715bea9cfd0b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "iced-rs",
+        "repo": "comet",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1772771118,
@@ -18,6 +50,8 @@
     },
     "root": {
       "inputs": {
+        "cargo-hot": "cargo-hot",
+        "comet": "comet",
         "nixpkgs": "nixpkgs",
         "treefmt": "treefmt"
       }

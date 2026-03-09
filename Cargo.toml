@@ -4,5 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-iced = { git = "https://github.com/pop-os/iced", version = "0.14.0", features = ["winit"] }
+iced = { git = "https://github.com/pop-os/iced", version = "0.14.0", default-features = false, features = ["tiny-skia", "wayland", "winit"] }
 wayland-client = "0.31.13"
+
+[features]
+debug = ["iced/hot", "iced/time-travel"]
