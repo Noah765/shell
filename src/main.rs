@@ -1,5 +1,6 @@
 use crate::shell::Shell;
 
+mod background;
 mod shell;
 
 fn main() -> iced::Result {

@@ -23,7 +23,7 @@
       default = shell;
 
       shell = (inputs.crane.mkLib pkgs).buildPackage {
-        src = (inputs.crane.mkLib pkgs).cleanCargoSource ./.;
+        src = ./.;
         strictDeps = true;
         buildInputs = with pkgs; [libx11 libxcb libxkbcommon];
         nativeBuildInputs = [pkgs.pkg-config];
