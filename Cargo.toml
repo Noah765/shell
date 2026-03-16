@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-iced = { git = "https://github.com/pop-os/iced", version = "0.14.0", default-features = false, features = ["tiny-skia", "wayland", "winit"] }
+iced = { git = "https://github.com/pop-os/iced", version = "0.14.0", default-features = false, features = ["wayland", "wgpu", "winit"] }
+rustix = { version = "0.38", features = ["fs"] } # Required for iced to compile without tiny-skia
 wayland-client = "0.31.13"
 
 [features]
