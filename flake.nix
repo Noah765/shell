@@ -1,6 +1,7 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    crane.url = "github:ipetkov/crane";
     cargo-hot.url = "github:hecrj/cargo-hot";
     cargo-hot.flake = false;
     comet.url = "github:iced-rs/comet";
@@ -21,10 +22,11 @@
     packages = eachSystem (pkgs: rec {
       default = shell;
 
-      shell = pkgs.rustPlatform.buildRustPackage {
-        name = "shell";
-        src = ./.;
-        cargoLock.lockFile = ./Cargo.lock;
+      shell = (inputs.crane.mkLib pkgs).buildPackage {
+        src = (inputs.crane.mkLib pkgs).cleanCargoSource ./.;
+        strictDeps = true;
+        buildInputs = with pkgs; [libx11 libxcb libxkbcommon];
+        nativeBuildInputs = [pkgs.pkg-config];
       };
     });
 
