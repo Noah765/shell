@@ -96,9 +96,14 @@ impl Background {
                 let overflow_x = self.bounds.width * ((scale - 1.0) / 2.0);
                 let overflow_y = self.bounds.height * ((scale - 1.0) / 2.0);
 
+                let moved_cursor_position = Point::new(
+                    cursor_position.x - global_bounds.x,
+                    cursor_position.y - global_bounds.y,
+                );
+
                 Vector {
-                    x: overflow_x * (1.0 - 2.0 * (cursor_position.x / global_bounds.width)),
-                    y: overflow_y * (1.0 - 2.0 * (cursor_position.y / global_bounds.height)),
+                    x: overflow_x * (1.0 - 2.0 * (moved_cursor_position.x / global_bounds.width)),
+                    y: overflow_y * (1.0 - 2.0 * (moved_cursor_position.y / global_bounds.height)),
                 }
             })
             .into()
