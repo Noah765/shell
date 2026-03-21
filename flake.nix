@@ -50,7 +50,7 @@
       };
     in {
       default = pkgs.mkShell {
-        packages = with pkgs; [cargo cargo-hot comet libx11 libxcb libxkbcommon pkg-config (formatter pkgs)];
+        packages = with pkgs; [cargo cargo-hot clippy comet libx11 libxcb libxkbcommon pkg-config (formatter pkgs)];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.vulkan-loader pkgs.wayland];
       };
     });
