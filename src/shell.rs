@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, Local};
 use iced::{
     Element, Event, Point, Rectangle, Size, Subscription, Task,
     event::{
@@ -7,6 +8,7 @@ use iced::{
         wayland::{self, OutputEvent},
     },
     mouse,
+    time::{self, seconds},
     window::Id,
 };
 use smithay_client_toolkit::{
@@ -20,6 +22,7 @@ pub struct Shell {
     backgrounds: HashMap<Id, Background>,
     background_bounds: Rectangle,
     cursor_position: Point,
+    now: DateTime<Local>,
 }
 
 #[derive(Clone, Debug)]
@@ -28,6 +31,7 @@ pub enum Message {
     OutputChanged(WlOutput, Rectangle),
     OutputRemoved(WlOutput),
     CursorMoved(Id, Point),
+    TimeTick(DateTime<Local>),
 }
 
 impl Shell {
@@ -36,6 +40,7 @@ impl Shell {
             backgrounds: HashMap::new(),
             background_bounds: Rectangle::new(Point::ORIGIN, Size::ZERO),
             cursor_position: Point::ORIGIN,
+            now: Local::now(),
         }
     }
 
@@ -70,6 +75,10 @@ impl Shell {
                 };
                 Task::none()
             }
+            Message::TimeTick(now) => {
+                self.now = now;
+                Task::none()
+            }
         }
     }
 
@@ -92,10 +101,18 @@ impl Shell {
     }
 
     pub fn view(&self, surface_id: Id) -> Element<'_, Message> {
-        self.backgrounds[&surface_id].view(self.background_bounds, self.cursor_position)
+        self.backgrounds[&surface_id].view(self.background_bounds, self.cursor_position, self.now)
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
+        Subscription::batch([
+            self.output_subscription(),
+            self.mouse_subscription(),
+            self.time_subscription(),
+        ])
+    }
+
+    fn output_subscription(&self) -> Subscription<Message> {
         fn get_output_bounds(info: OutputInfo) -> Rectangle {
             Rectangle {
                 x: info.logical_position.unwrap().0 as f32,
@@ -105,7 +122,7 @@ impl Shell {
             }
         }
 
-        event::listen_with(|event, _, surface_id| match event {
+        event::listen_with(|event, _, _| match event {
             Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::Output(
                 event,
                 output,
@@ -119,10 +136,20 @@ impl Shell {
                 }
                 OutputEvent::Removed => Some(Message::OutputRemoved(output)),
             },
+            _ => None,
+        })
+    }
+
+    fn mouse_subscription(&self) -> Subscription<Message> {
+        event::listen_with(|event, _, surface_id| match event {
             Event::Mouse(mouse::Event::CursorMoved { position }) => {
                 Some(Message::CursorMoved(surface_id, position))
             }
             _ => None,
         })
+    }
+
+    fn time_subscription(&self) -> Subscription<Message> {
+        time::every(seconds(10)).map(|_| Message::TimeTick(Local::now()))
     }
 }

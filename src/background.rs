@@ -1,14 +1,16 @@
 use std::sync::LazyLock;
 
+use chrono::{DateTime, Local};
 use iced::{
-    ContentFit, Element, Point, Rectangle, Task, Vector,
+    ContentFit, Element, Font, Point, Rectangle, Task, Vector,
     core::image::Handle,
+    font::{Family, Weight},
     platform_specific::shell::commands::{
         layer_surface,
         subsurface::{Anchor, Layer},
     },
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
-    widget::{float, image, stack},
+    widget::{center, float, image, stack, text},
     window::Id,
 };
 use smithay_client_toolkit::reexports::client::{Proxy, protocol::wl_output::WlOutput};
@@ -40,7 +42,12 @@ impl Background {
         (background, task)
     }
 
-    pub fn view(&self, global_bounds: Rectangle, cursor_position: Point) -> Element<'_, Message> {
+    pub fn view(
+        &self,
+        global_bounds: Rectangle,
+        cursor_position: Point,
+        now: DateTime<Local>,
+    ) -> Element<'_, Message> {
         static BACKGROUND: LazyLock<Handle> =
             LazyLock::new(|| Handle::from_bytes(&include_bytes!("../assets/background.png")[..]));
         static MIDDLEGROUND: LazyLock<Handle> =
@@ -57,19 +64,20 @@ impl Background {
                 BACKGROUND.clone(),
                 BACKGROUND_SCALE,
                 global_bounds,
-                cursor_position
+                cursor_position,
             ),
+            self.view_clock(now),
             self.view_layer(
                 MIDDLEGROUND.clone(),
                 MIDDLEGROUND_SCALE,
                 global_bounds,
-                cursor_position
+                cursor_position,
             ),
             self.view_layer(
                 FOREGROUND.clone(),
                 FOREGROUND_SCALE,
                 global_bounds,
-                cursor_position
+                cursor_position,
             ),
         ]
         .into()
@@ -94,6 +102,19 @@ impl Background {
                 }
             })
             .into()
+    }
+
+    fn view_clock(&self, now: DateTime<Local>) -> Element<'_, Message> {
+        center(
+            text(now.format("%R").to_string())
+                .size(self.bounds.width / 15.0)
+                .font(Font {
+                    family: Family::Monospace,
+                    weight: Weight::Bold,
+                    ..Default::default()
+                }),
+        )
+        .into()
     }
 
     pub fn on_output(&self, output: &WlOutput) -> bool {
