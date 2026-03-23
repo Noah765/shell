@@ -13,37 +13,33 @@ use iced::{
     widget::{center, float, image, stack, text},
     window::Id,
 };
-use smithay_client_toolkit::reexports::client::{Proxy, protocol::wl_output::WlOutput};
+use smithay_client_toolkit::reexports::client::protocol::wl_output::WlOutput;
 
 use crate::shell::Message;
 
 #[derive(Debug)]
 pub struct Background {
-    output_id: u32,
-    bounds: Rectangle,
+    surface_id: Id,
 }
 
 impl Background {
-    pub fn new(output: WlOutput, bounds: Rectangle, surface_id: Id) -> (Self, Task<Message>) {
-        let background = Self {
-            output_id: output.id().protocol_id(),
-            bounds,
-        };
-
+    pub fn new(output: WlOutput) -> (Self, Task<Message>) {
+        let surface_id = Id::unique();
         let task = layer_surface::get_layer_surface(SctkLayerSurfaceSettings {
             id: surface_id,
             layer: Layer::Background,
             anchor: Anchor::all(),
             output: IcedOutput::Output(output),
-            namespace: String::from("shell"),
+            namespace: String::from("shell-background"),
+            exclusive_zone: -1,
             ..Default::default()
         });
-
-        (background, task)
+        (Self { surface_id }, task)
     }
 
     pub fn view(
         &self,
+        bounds: Rectangle,
         global_bounds: Rectangle,
         cursor_position: Point,
         now: DateTime<Local>,
@@ -63,19 +59,22 @@ impl Background {
             self.view_layer(
                 BACKGROUND.clone(),
                 BACKGROUND_SCALE,
+                bounds,
                 global_bounds,
                 cursor_position,
             ),
-            self.view_clock(now),
+            self.view_clock(bounds, now),
             self.view_layer(
                 MIDDLEGROUND.clone(),
                 MIDDLEGROUND_SCALE,
+                bounds,
                 global_bounds,
                 cursor_position,
             ),
             self.view_layer(
                 FOREGROUND.clone(),
                 FOREGROUND_SCALE,
+                bounds,
                 global_bounds,
                 cursor_position,
             ),
@@ -87,14 +86,15 @@ impl Background {
         &self,
         handle: Handle,
         scale: f32,
+        bounds: Rectangle,
         global_bounds: Rectangle,
         cursor_position: Point,
     ) -> Element<'_, Message> {
         float(image(handle).content_fit(ContentFit::Cover))
             .scale(scale)
             .translate(move |_, _| {
-                let overflow_x = self.bounds.width * ((scale - 1.0) / 2.0);
-                let overflow_y = self.bounds.height * ((scale - 1.0) / 2.0);
+                let overflow_x = bounds.width * ((scale - 1.0) / 2.0);
+                let overflow_y = bounds.height * ((scale - 1.0) / 2.0);
 
                 let moved_cursor_position = Point::new(
                     cursor_position.x - global_bounds.x,
@@ -109,10 +109,10 @@ impl Background {
             .into()
     }
 
-    fn view_clock(&self, now: DateTime<Local>) -> Element<'_, Message> {
+    fn view_clock(&self, bounds: Rectangle, now: DateTime<Local>) -> Element<'_, Message> {
         center(
             text(now.format("%R").to_string())
-                .size(self.bounds.width / 15.0)
+                .size(bounds.width / 15.0)
                 .font(Font {
                     family: Family::Monospace,
                     weight: Weight::Bold,
@@ -122,19 +122,11 @@ impl Background {
         .into()
     }
 
-    pub fn on_output(&self, output: &WlOutput) -> bool {
-        self.output_id == output.id().protocol_id()
+    pub fn surface_id(&self) -> Id {
+        self.surface_id
     }
 
-    pub fn bounds(&self) -> Rectangle {
-        self.bounds
-    }
-
-    pub fn bounds_mut(&mut self) -> &mut Rectangle {
-        &mut self.bounds
-    }
-
-    pub fn destroy(self, surface_id: Id) -> Task<Message> {
-        layer_surface::destroy_layer_surface(surface_id)
+    pub fn destroy(self) -> Task<Message> {
+        layer_surface::destroy_layer_surface(self.surface_id)
     }
 }

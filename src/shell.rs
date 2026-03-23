@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use chrono::{DateTime, Local};
 use iced::{
-    Element, Event, Point, Rectangle, Size, Subscription, Task,
+    Element, Point, Rectangle, Size, Subscription, Task,
     event::{
         self, PlatformSpecific,
         wayland::{self, OutputEvent},
@@ -12,32 +10,40 @@ use iced::{
     window::Id,
 };
 use smithay_client_toolkit::{
-    output::OutputInfo, reexports::client::protocol::wl_output::WlOutput,
+    output::OutputInfo,
+    reexports::client::{Proxy, backend::ObjectId, protocol::wl_output::WlOutput},
 };
 
-use crate::background::Background;
+use crate::{background::Background, bar::Bar};
 
 #[derive(Debug)]
 pub struct Shell {
-    backgrounds: HashMap<Id, Background>,
+    outputs: Vec<Output>,
     background_bounds: Rectangle,
     cursor_position: Point,
     now: DateTime<Local>,
 }
 
+#[derive(Debug)]
+struct Output {
+    id: ObjectId,
+    bounds: Rectangle,
+    background: Background,
+    bar: Bar,
+}
 #[derive(Clone, Debug)]
 pub enum Message {
-    OutputCreated(WlOutput, Rectangle),
-    OutputChanged(WlOutput, Rectangle),
+    OutputCreated { output: WlOutput, bounds: Rectangle },
+    OutputChanged { output: WlOutput, bounds: Rectangle },
     OutputRemoved(WlOutput),
-    CursorMoved(Id, Point),
+    CursorMoved { surface_id: Id, position: Point },
     TimeTick(DateTime<Local>),
 }
 
 impl Shell {
     pub fn new() -> Self {
         Self {
-            backgrounds: HashMap::new(),
+            outputs: Vec::new(),
             background_bounds: Rectangle::new(Point::ORIGIN, Size::ZERO),
             cursor_position: Point::ORIGIN,
             now: Local::now(),
@@ -46,29 +52,55 @@ impl Shell {
 
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
-            Message::OutputCreated(output, bounds) => {
-                let surface_id = Id::unique();
-                let (background, task) = Background::new(output, bounds, surface_id);
-                self.backgrounds.insert(surface_id, background);
-                self.update_bounds();
-                task
+            Message::OutputCreated { output, bounds } => {
+                let (background, background_task) = Background::new(output.clone());
+                let (bar, bar_task) = Bar::new(output.clone());
+
+                self.outputs.push(Output {
+                    id: output.id(),
+                    bounds,
+                    background,
+                    bar,
+                });
+                self.update_background_bounds();
+
+                Task::batch([background_task, bar_task])
             }
-            Message::OutputChanged(output, bounds) => {
-                *self
-                    .backgrounds
-                    .get_mut(&self.get_background_surface_id(output))
-                    .unwrap()
-                    .bounds_mut() = bounds;
+            Message::OutputChanged { output, bounds } => {
+                let output = self
+                    .outputs
+                    .iter_mut()
+                    .find(|x| x.id == output.id())
+                    .unwrap();
+                output.bounds = bounds;
+
+                self.update_background_bounds();
+
                 Task::none()
             }
             Message::OutputRemoved(output) => {
-                let surface_id = self.get_background_surface_id(output);
-                let background = self.backgrounds.remove(&surface_id).unwrap();
-                self.update_bounds();
-                background.destroy(surface_id)
+                let output_index = self
+                    .outputs
+                    .iter()
+                    .position(|x| x.id == output.id())
+                    .unwrap();
+                let output = self.outputs.swap_remove(output_index);
+
+                self.update_background_bounds();
+
+                Task::batch([output.background.destroy(), output.bar.destroy()])
             }
-            Message::CursorMoved(surface_id, position) => {
-                let output_position = self.backgrounds[&surface_id].bounds().position();
+            Message::CursorMoved {
+                surface_id,
+                position,
+            } => {
+                let output_position = self
+                    .outputs
+                    .iter()
+                    .find(|x| x.background.surface_id() == surface_id)
+                    .unwrap()
+                    .bounds
+                    .position();
                 self.cursor_position = Point {
                     x: output_position.x + position.x,
                     y: output_position.y + position.y,
@@ -82,26 +114,29 @@ impl Shell {
         }
     }
 
-    fn get_background_surface_id(&self, output: WlOutput) -> Id {
-        *self
-            .backgrounds
-            .iter()
-            .find(|x| x.1.on_output(&output))
-            .unwrap()
-            .0
-    }
-
-    fn update_bounds(&mut self) {
+    fn update_background_bounds(&mut self) {
         self.background_bounds = self
-            .backgrounds
-            .values()
-            .map(|x| x.bounds())
+            .outputs
+            .iter()
+            .map(|x| x.bounds)
             .reduce(|acc, x| acc.union(&x))
             .unwrap_or_else(|| Rectangle::new(Point::ORIGIN, Size::ZERO))
     }
 
     pub fn view(&self, surface_id: Id) -> Element<'_, Message> {
-        self.backgrounds[&surface_id].view(self.background_bounds, self.cursor_position, self.now)
+        for x in &self.outputs {
+            if x.background.surface_id() == surface_id {
+                return x.background.view(
+                    x.bounds,
+                    self.background_bounds,
+                    self.cursor_position,
+                    self.now,
+                );
+            } else if x.bar.surface_id() == surface_id {
+                return x.bar.view(self.now);
+            }
+        }
+        unreachable!();
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
@@ -113,7 +148,7 @@ impl Shell {
     }
 
     fn output_subscription(&self) -> Subscription<Message> {
-        fn get_output_bounds(info: OutputInfo) -> Rectangle {
+        fn get_output_bounds(info: &OutputInfo) -> Rectangle {
             Rectangle {
                 x: info.logical_position.unwrap().0 as f32,
                 y: info.logical_position.unwrap().1 as f32,
@@ -123,17 +158,18 @@ impl Shell {
         }
 
         event::listen_with(|event, _, _| match event {
-            Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::Output(
+            iced::Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::Output(
                 event,
                 output,
             ))) => match event {
-                OutputEvent::Created(x) => {
-                    let bounds = get_output_bounds(x.unwrap());
-                    Some(Message::OutputCreated(output, bounds))
-                }
-                OutputEvent::InfoUpdate(x) => {
-                    Some(Message::OutputChanged(output, get_output_bounds(x)))
-                }
+                OutputEvent::Created(x) => Some(Message::OutputCreated {
+                    output,
+                    bounds: get_output_bounds(x.as_ref().unwrap()),
+                }),
+                OutputEvent::InfoUpdate(x) => Some(Message::OutputChanged {
+                    output,
+                    bounds: get_output_bounds(&x),
+                }),
                 OutputEvent::Removed => Some(Message::OutputRemoved(output)),
             },
             _ => None,
@@ -142,8 +178,11 @@ impl Shell {
 
     fn mouse_subscription(&self) -> Subscription<Message> {
         event::listen_with(|event, _, surface_id| match event {
-            Event::Mouse(mouse::Event::CursorMoved { position }) => {
-                Some(Message::CursorMoved(surface_id, position))
+            iced::Event::Mouse(mouse::Event::CursorMoved { position }) => {
+                Some(Message::CursorMoved {
+                    surface_id,
+                    position,
+                })
             }
             _ => None,
         })
