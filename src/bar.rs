@@ -1,20 +1,23 @@
 use chrono::{DateTime, Local};
 use iced::{
-    Background, Border, Element, Length, Radius, Task, Theme,
+    Background, Border, Color, Element, Length, Radius, Task, Theme,
     alignment::{Horizontal, Vertical},
-    padding,
+    border, padding,
     platform_specific::shell::commands::layer_surface,
     runtime::platform_specific::wayland::layer_surface::{
         IcedMargin, IcedOutput, SctkLayerSurfaceSettings,
     },
-    widget::{Container, column, container::Style, text},
+    widget::{Container, column, container::Style, row, space, text},
     window::Id,
 };
 use smithay_client_toolkit::{
     reexports::client::protocol::wl_output::WlOutput, shell::wlr_layer::Anchor,
 };
 
-use crate::shell::Message;
+use crate::{
+    shell::Message,
+    workspace::{WindowGroup, Workspace},
+};
 
 #[derive(Debug)]
 pub struct Bar {
@@ -43,10 +46,16 @@ impl Bar {
         (Self { surface_id }, task)
     }
 
-    pub fn view(&self, now: DateTime<Local>) -> Element<'_, Message> {
+    pub fn view(
+        &self,
+        workspace: usize,
+        workspaces: &[Workspace; 9],
+        now: DateTime<Local>,
+    ) -> Element<'_, Message> {
         Container::new(
             column![
                 text(now.format("%H\n%M").to_string()).height(Length::Fill),
+                self.view_workspaces(workspaces, workspace),
                 text(now.format("%d\n%m").to_string())
                     .height(Length::Fill)
                     .align_y(Vertical::Bottom),
@@ -65,6 +74,80 @@ impl Bar {
             ..Default::default()
         })
         .into()
+    }
+
+    fn view_workspaces(
+        &self,
+        workspaces: &[Workspace; 9],
+        workspace: usize,
+    ) -> Element<'_, Message> {
+        column(workspaces.iter().enumerate().map(|(i, x)| {
+            let active = i == workspace;
+            let content = match x {
+                Workspace {
+                    fullscreen: true, ..
+                } => Container::new(space())
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .style(move |theme: &Theme| Style {
+                        background: Some(Background::Color(self.workspace_color(theme, active))),
+                        border: border::rounded(4),
+                        ..Style::default()
+                    })
+                    .into(),
+                Workspace { group: None, .. } => Container::new(space())
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .style(move |theme: &Theme| Style {
+                        border: Border {
+                            color: self.workspace_color(theme, active),
+                            width: 1.5,
+                            radius: Radius::new(8),
+                        },
+                        ..Style::default()
+                    })
+                    .into(),
+                Workspace { group: Some(x), .. } => self.view_workspace_window_group(x, active),
+            };
+            Container::new(content).width(16).height(16).into()
+        }))
+        .spacing(4)
+        .into()
+    }
+
+    fn workspace_color(&self, theme: &Theme, active: bool) -> Color {
+        if active {
+            theme.palette().primary
+        } else {
+            theme.extended_palette().background.strong.color
+        }
+    }
+
+    fn view_workspace_window_group(
+        &self,
+        group: &WindowGroup,
+        active: bool,
+    ) -> Element<'_, Message> {
+        match group {
+            WindowGroup::Single => Container::new(space())
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .style(move |theme: &Theme| Style {
+                    background: Some(Background::Color(self.workspace_color(theme, active))),
+                    border: border::rounded(8),
+                    ..Style::default()
+                })
+                .into(),
+            WindowGroup::Horizontal(children) | WindowGroup::Vertical(children) => {
+                let children = children
+                    .iter()
+                    .map(|x| self.view_workspace_window_group(x, active));
+                match group {
+                    WindowGroup::Horizontal(_) => row(children).spacing(2).into(),
+                    _ => column(children).spacing(2).into(),
+                }
+            }
+        }
     }
 
     pub fn surface_id(&self) -> Id {

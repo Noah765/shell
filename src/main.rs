@@ -9,6 +9,7 @@ use crate::shell::Shell;
 mod background;
 mod bar;
 mod shell;
+mod workspace;
 
 fn main() -> iced::Result {
     iced::daemon(Shell::new, Shell::update, Shell::view)
