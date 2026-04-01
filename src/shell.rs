@@ -209,12 +209,9 @@ impl Shell {
     pub fn view(&self, surface_id: Id) -> Element<'_, Message> {
         for x in &self.outputs {
             if x.background.surface_id() == surface_id {
-                return x.background.view(
-                    x.bounds,
-                    self.background_bounds,
-                    self.cursor_position,
-                    self.now,
-                );
+                return x
+                    .background
+                    .view(self.background_bounds, self.cursor_position, self.now);
             } else if x.bar.surface_id() == surface_id {
                 return x.bar.view(x.workspace, &self.workspaces, self.now);
             }

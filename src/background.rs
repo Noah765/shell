@@ -2,7 +2,7 @@ use std::sync::LazyLock;
 
 use chrono::{DateTime, Local};
 use iced::{
-    ContentFit, Element, Font, Point, Rectangle, Task, Vector,
+    ContentFit, Element, Font, Point, Rectangle, Size, Task, Vector,
     core::image::Handle,
     font::{Family, Weight},
     platform_specific::shell::commands::{
@@ -10,7 +10,7 @@ use iced::{
         subsurface::{Anchor, Layer},
     },
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
-    widget::{center, float, image, stack, text},
+    widget::{center, float, image, responsive, space, stack, text},
     window::Id,
 };
 use smithay_client_toolkit::reexports::client::protocol::wl_output::WlOutput;
@@ -39,7 +39,6 @@ impl Background {
 
     pub fn view(
         &self,
-        bounds: Rectangle,
         global_bounds: Rectangle,
         cursor_position: Point,
         now: DateTime<Local>,
@@ -59,22 +58,19 @@ impl Background {
             self.view_layer(
                 BACKGROUND.clone(),
                 BACKGROUND_SCALE,
-                bounds,
                 global_bounds,
                 cursor_position,
             ),
-            self.view_clock(bounds, now),
+            self.view_clock(now),
             self.view_layer(
                 MIDDLEGROUND.clone(),
                 MIDDLEGROUND_SCALE,
-                bounds,
                 global_bounds,
                 cursor_position,
             ),
             self.view_layer(
                 FOREGROUND.clone(),
                 FOREGROUND_SCALE,
-                bounds,
                 global_bounds,
                 cursor_position,
             ),
@@ -86,15 +82,14 @@ impl Background {
         &self,
         handle: Handle,
         scale: f32,
-        bounds: Rectangle,
         global_bounds: Rectangle,
         cursor_position: Point,
     ) -> Element<'_, Message> {
         float(image(handle).content_fit(ContentFit::Cover))
             .scale(scale)
-            .translate(move |_, _| {
-                let overflow_x = bounds.width * ((scale - 1.0) / 2.0);
-                let overflow_y = bounds.height * ((scale - 1.0) / 2.0);
+            .translate(move |viewport, _| {
+                let overflow_x = viewport.width * ((scale - 1.0) / 2.0);
+                let overflow_y = viewport.height * ((scale - 1.0) / 2.0);
 
                 let moved_cursor_position = Point::new(
                     cursor_position.x - global_bounds.x,
@@ -109,16 +104,23 @@ impl Background {
             .into()
     }
 
-    fn view_clock(&self, bounds: Rectangle, now: DateTime<Local>) -> Element<'_, Message> {
-        center(
-            text(now.format("%R").to_string())
-                .size(bounds.width / 15.0)
-                .font(Font {
-                    family: Family::Monospace,
-                    weight: Weight::Bold,
-                    ..Default::default()
-                }),
-        )
+    fn view_clock(&self, now: DateTime<Local>) -> Element<'_, Message> {
+        responsive(move |Size { width, .. }| {
+            if width == 0.0 {
+                return space().into();
+            }
+
+            center(
+                text(now.format("%R").to_string())
+                    .size(width / 15.0)
+                    .font(Font {
+                        family: Family::Monospace,
+                        weight: Weight::Bold,
+                        ..Default::default()
+                    }),
+            )
+            .into()
+        })
         .into()
     }
 
