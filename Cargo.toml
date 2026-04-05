@@ -6,8 +6,7 @@ edition = "2024"
 [dependencies]
 chrono = "0.4.44"
 hyprland = { version = "0.4.0-beta.3", default-features = false, features = ["data", "listener", "tokio"] }
-iced = { git = "https://github.com/pop-os/iced", version = "0.14.0", default-features = false, features = ["image", "tokio", "wayland", "wgpu", "winit"] }
-rustix = { version = "0.38", features = ["fs"] } # Required for iced to compile without tiny-skia
+iced = { git = "https://github.com/pop-os/iced", version = "0.14.0", default-features = false, features = ["cctk", "image", "tokio", "wgpu", "winit"] }
 smithay-client-toolkit = "0.20.0"
 
 [features]
