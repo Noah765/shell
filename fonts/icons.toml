@@ -1,0 +1,8 @@
+module = "icon"
+
+[icons]
+wifi_off = "wifi-off"
+wifi_weakest = "wifi-zero"
+wifi_weak = "wifi-low"
+wifi_strong = "wifi-high"
+wifi_strongest = "wifi"

@@ -8,13 +8,16 @@ use crate::shell::Shell;
 
 mod background;
 mod bar;
+mod icon;
 mod shell;
+mod wifi;
 mod workspace;
 
 fn main() -> iced::Result {
     iced::daemon(Shell::new, Shell::update, Shell::view)
         .title("shell")
         .subscription(Shell::subscription)
+        .font(icon::FONT)
         .default_font(Font {
             family: Family::Monospace,
             weight: Weight::Medium,

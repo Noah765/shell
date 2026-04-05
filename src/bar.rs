@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local};
 use iced::{
     Background, Border, Color, Element, Length, Radius, Size, Task, Theme,
-    alignment::{Horizontal, Vertical},
+    alignment::Horizontal,
     border, padding,
     platform_specific::shell::commands::layer_surface,
     runtime::platform_specific::wayland::layer_surface::{
@@ -15,7 +15,8 @@ use smithay_client_toolkit::{
 };
 
 use crate::{
-    shell::Message,
+    icon,
+    shell::{Message, WifiStrength},
     workspace::{WindowGroup, Workspace},
 };
 
@@ -52,6 +53,7 @@ impl Bar {
         &'a self,
         workspace: usize,
         workspaces: &'a [Workspace; 9],
+        wifi_strength: Option<WifiStrength>,
         now: DateTime<Local>,
     ) -> Element<'a, Message> {
         responsive(move |Size { width, .. }| {
@@ -61,10 +63,14 @@ impl Bar {
                         .size(14.0 / WIDTH * width)
                         .height(Length::Fill),
                     self.view_workspaces(width, workspaces, workspace),
-                    text(now.format("%d\n%m").to_string())
-                        .size(14.0 / WIDTH * width)
-                        .height(Length::Fill)
-                        .align_y(Vertical::Bottom),
+                    column![
+                        space().height(Length::Fill),
+                        self.view_wifi(width, wifi_strength),
+                        text(now.format("%d\n%m").to_string()).size(14.0 / WIDTH * width)
+                    ]
+                    .spacing(4.0 / WIDTH * width)
+                    .height(Length::Fill)
+                    .align_x(Horizontal::Center)
                 ]
                 .width(Length::Fill)
                 .align_x(Horizontal::Center),
@@ -162,6 +168,18 @@ impl Bar {
                     _ => column(children).spacing(2.0 / WIDTH * width).into(),
                 }
             }
+        }
+    }
+
+    fn view_wifi(&self, width: f32, strength: Option<WifiStrength>) -> Element<'_, Message> {
+        let size = 16.0 / WIDTH * width;
+
+        match strength {
+            None => icon::wifi_off().size(size).into(),
+            Some(WifiStrength::Weakest) => icon::wifi_weakest().size(size).into(),
+            Some(WifiStrength::Weak) => icon::wifi_weak().size(size).into(),
+            Some(WifiStrength::Strong) => icon::wifi_strong().size(size).into(),
+            Some(WifiStrength::Strongest) => icon::wifi_strongest().size(size).into(),
         }
     }
 

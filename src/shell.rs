@@ -10,7 +10,7 @@ use iced::{
         self, PlatformSpecific,
         wayland::{self, OutputEvent},
     },
-    mouse,
+    mouse, stream,
     time::{self, seconds},
     window::Id,
 };
@@ -19,7 +19,7 @@ use smithay_client_toolkit::{
     reexports::client::{Proxy, backend::ObjectId, protocol::wl_output::WlOutput},
 };
 
-use crate::{background::Background, bar::Bar, workspace::Workspace};
+use crate::{background::Background, bar::Bar, wifi, workspace::Workspace};
 
 #[derive(Debug)]
 pub struct Shell {
@@ -27,8 +27,17 @@ pub struct Shell {
     workspaces: [Workspace; 9],
     background_bounds: Rectangle,
     active_monitor: String,
+    wifi_strength: Option<WifiStrength>,
     cursor_position: Point,
     now: DateTime<Local>,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum WifiStrength {
+    Weakest,
+    Weak,
+    Strong,
+    Strongest,
 }
 
 #[derive(Debug)]
@@ -62,6 +71,7 @@ pub enum Message {
         workspace: usize,
     },
     WorkspaceChanged(Option<Box<[Workspace; 9]>>),
+    WifiStrengthChanged(Option<u8>),
     CursorMoved {
         surface_id: Id,
         position: Point,
@@ -76,6 +86,7 @@ impl Shell {
             workspaces: Workspace::fetch(),
             background_bounds: Rectangle::new(Point::ORIGIN, Size::ZERO),
             active_monitor: Self::fetch_active_monitor(),
+            wifi_strength: None,
             cursor_position: Point::ORIGIN,
             now: Local::now(),
         }
@@ -173,6 +184,15 @@ impl Shell {
                 self.workspaces = *workspaces;
                 Task::none()
             }
+            Message::WifiStrengthChanged(x) => {
+                self.wifi_strength = x.map(|x| match x {
+                    0..25 => WifiStrength::Weakest,
+                    25..50 => WifiStrength::Weak,
+                    50..75 => WifiStrength::Strong,
+                    75.. => WifiStrength::Strongest,
+                });
+                Task::none()
+            }
             Message::CursorMoved {
                 surface_id,
                 position,
@@ -213,7 +233,9 @@ impl Shell {
                     .background
                     .view(self.background_bounds, self.cursor_position, self.now);
             } else if x.bar.surface_id() == surface_id {
-                return x.bar.view(x.workspace, &self.workspaces, self.now);
+                return x
+                    .bar
+                    .view(x.workspace, &self.workspaces, self.wifi_strength, self.now);
             }
         }
         unreachable!();
@@ -223,6 +245,7 @@ impl Shell {
         Subscription::batch([
             self.output_subscription(),
             self.hyprland_subscription(),
+            self.wifi_subscription(),
             self.mouse_subscription(),
             self.time_subscription(),
         ])
@@ -278,6 +301,10 @@ impl Shell {
             | event_listener::Event::FloatStateChanged(_) => Some(Message::WorkspaceChanged(None)),
             _ => None,
         })
+    }
+
+    fn wifi_subscription(&self) -> Subscription<Message> {
+        Subscription::run(|| stream::channel(64, wifi::wifi))
     }
 
     fn mouse_subscription(&self) -> Subscription<Message> {

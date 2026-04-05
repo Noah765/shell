@@ -24,6 +24,7 @@
         src = ./.;
         strictDeps = true;
         buildInputs = with pkgs; [libx11 libxcb libxkbcommon];
+        LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libclang];
         nativeBuildInputs = [pkgs.pkg-config];
       };
     });
@@ -41,7 +42,7 @@
     in {
       default = pkgs.mkShell {
         packages = with pkgs; [cargo clippy comet libx11 libxcb libxkbcommon pkg-config (formatter pkgs)];
-        LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.vulkan-loader pkgs.wayland];
+        LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [libclang vulkan-loader wayland]);
       };
     });
 
