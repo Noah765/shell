@@ -11,4 +11,4 @@ rustix = { version = "0.38", features = ["fs"] } # Required for iced to compile 
 smithay-client-toolkit = "0.20.0"
 
 [features]
-debug = ["iced/hot", "iced/time-travel"]
+debug = ["iced/time-travel"]

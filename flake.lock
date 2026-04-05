@@ -1,21 +1,5 @@
 {
   "nodes": {
-    "cargo-hot": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1764969190,
-        "narHash": "sha256-t6+dTBKiFf23qSc2FWSrHzUgIW+uanffUfc5nJACKTs=",
-        "owner": "hecrj",
-        "repo": "cargo-hot",
-        "rev": "2c10fbc28d268211eaf6ea2473e3dc0a37dbfda9",
-        "type": "github"
-      },
-      "original": {
-        "owner": "hecrj",
-        "repo": "cargo-hot",
-        "type": "github"
-      }
-    },
     "comet": {
       "flake": false,
       "locked": {
@@ -65,7 +49,6 @@
     },
     "root": {
       "inputs": {
-        "cargo-hot": "cargo-hot",
         "comet": "comet",
         "crane": "crane",
         "nixpkgs": "nixpkgs",

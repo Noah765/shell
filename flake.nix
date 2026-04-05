@@ -2,8 +2,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     crane.url = "github:ipetkov/crane";
-    cargo-hot.url = "github:hecrj/cargo-hot";
-    cargo-hot.flake = false;
     comet.url = "github:iced-rs/comet";
     comet.flake = false;
     treefmt.url = "github:numtide/treefmt-nix";
@@ -31,14 +29,6 @@
     });
 
     devShells = eachSystem (pkgs: let
-      cargo-hot = pkgs.rustPlatform.buildRustPackage {
-        pname = "cargo-hot";
-        version = inputs.cargo-hot.rev;
-        src = inputs.cargo-hot;
-        cargoHash = "sha256-Cvn6/HgIBqkcu7/SY2AXWio1k0vaYbvmg8EpO1TaOeE=";
-        buildInputs = [pkgs.openssl];
-        nativeBuildInputs = [pkgs.pkg-config];
-      };
       comet = pkgs.rustPlatform.buildRustPackage {
         pname = "comet";
         version = inputs.comet.rev;
@@ -50,7 +40,7 @@
       };
     in {
       default = pkgs.mkShell {
-        packages = with pkgs; [cargo cargo-hot clippy comet libx11 libxcb libxkbcommon pkg-config (formatter pkgs)];
+        packages = with pkgs; [cargo clippy comet libx11 libxcb libxkbcommon pkg-config (formatter pkgs)];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.vulkan-loader pkgs.wayland];
       };
     });
