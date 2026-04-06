@@ -1,21 +1,5 @@
 {
   "nodes": {
-    "comet": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1771333437,
-        "narHash": "sha256-aefw4FK40Nu7+hOJ0geOpYg/XXFEFmdCD3x2xrVEHVk=",
-        "owner": "iced-rs",
-        "repo": "comet",
-        "rev": "fbef808eed51562f0ea601d8fc7c715bea9cfd0b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "iced-rs",
-        "repo": "comet",
-        "type": "github"
-      }
-    },
     "crane": {
       "locked": {
         "lastModified": 1775236976,
@@ -49,7 +33,6 @@
     },
     "root": {
       "inputs": {
-        "comet": "comet",
         "crane": "crane",
         "nixpkgs": "nixpkgs",
         "treefmt": "treefmt"

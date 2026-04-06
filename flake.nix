@@ -2,8 +2,6 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     crane.url = "github:ipetkov/crane";
-    comet.url = "github:iced-rs/comet";
-    comet.flake = false;
     treefmt.url = "github:numtide/treefmt-nix";
     treefmt.inputs.nixpkgs.follows = "nixpkgs";
   };
@@ -30,15 +28,23 @@
     });
 
     devShells = eachSystem (pkgs: let
-      comet = pkgs.rustPlatform.buildRustPackage {
+      comet = pkgs.rustPlatform.buildRustPackage (finalAttrs: {
         pname = "comet";
-        version = inputs.comet.rev;
-        src = inputs.comet;
+        version = "fbef808eed51562f0ea601d8fc7c715bea9cfd0b";
+
+        src = pkgs.fetchFromGitHub {
+          owner = "iced-rs";
+          repo = "comet";
+          rev = finalAttrs.version;
+          hash = "sha256-aefw4FK40Nu7+hOJ0geOpYg/XXFEFmdCD3x2xrVEHVk=";
+        };
         cargoHash = "sha256-c3at2XyG2c+mJD43YMlfolT1WZaDcBzfxXoS0CX8lag=";
+
         nativeBuildInputs = [pkgs.autoPatchelfHook];
-        runtimeDependencies = with pkgs; [libxkbcommon vulkan-loader wayland];
         autoPatchelfIgnoreMissingDeps = ["libgcc_s.so.1"];
-      };
+
+        runtimeDependencies = with pkgs; [libxkbcommon vulkan-loader wayland];
+      });
     in {
       default = pkgs.mkShell {
         packages = with pkgs; [cargo clippy comet libx11 libxcb libxkbcommon pkg-config (formatter pkgs)];
