@@ -8,23 +8,16 @@ pub async fn wifi(mut sender: Sender<Message>) {
     let connection = Connection::system().await.unwrap();
     let network_manager = NetworkManagerProxy::new(&connection).await.unwrap();
 
-    let primary_path = network_manager.primary_connection().await.unwrap();
-    let primary = ActiveProxy::new_from_path(primary_path, &connection)
+    let mut primary_connection_stream = network_manager
+        .receive_primary_connection_changed()
         .await
-        .unwrap();
-    let device = primary.devices().await.unwrap().into_iter().next().unwrap();
-
-    let wireless = WirelessProxy::new_from_path(device, &connection)
-        .await
-        .unwrap();
-
-    let mut access_point_stream = wireless.receive_active_access_point_changed().await.fuse();
+        .fuse();
     let mut current_strength_stream = None;
 
     loop {
         let strength_stream = match &mut current_strength_stream {
             None => {
-                let property = access_point_stream.next().await.unwrap();
+                let property = primary_connection_stream.next().await.unwrap();
                 update_strength_stream(
                     property.get().await.unwrap(),
                     &mut current_strength_stream,
@@ -41,7 +34,7 @@ pub async fn wifi(mut sender: Sender<Message>) {
         };
 
         select! {
-            x = access_point_stream.next() => update_strength_stream(
+            x = primary_connection_stream.next() => update_strength_stream(
                 x.unwrap().get().await.unwrap(),
                 &mut current_strength_stream,
                 &connection,
@@ -74,8 +67,17 @@ async fn update_strength_stream<'a>(
         return;
     }
 
-    let access_point = AccessPointProxy::new_from_path(path, connection)
+    let active = ActiveProxy::new_from_path(path, connection).await.unwrap();
+    let device = active.devices().await.unwrap().into_iter().next().unwrap();
+
+    let wireless = WirelessProxy::new_from_path(device, connection)
         .await
         .unwrap();
+
+    let access_point_path = wireless.active_access_point().await.unwrap();
+    let access_point = AccessPointProxy::new_from_path(access_point_path, connection)
+        .await
+        .unwrap();
+
     *stream = Some(access_point.receive_strength_changed().await.fuse());
 }
