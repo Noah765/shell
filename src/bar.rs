@@ -176,10 +176,10 @@ impl Bar {
 
         match strength {
             None => icon::wifi_off().size(size).into(),
-            Some(0..25) => icon::wifi_weakest().size(size).into(),
-            Some(25..50) => icon::wifi_weak().size(size).into(),
-            Some(50..75) => icon::wifi_strong().size(size).into(),
-            Some(75..) => icon::wifi_strongest().size(size).into(),
+            Some(0..25) => icon::wifi_1().size(size).into(),
+            Some(25..50) => icon::wifi_2().size(size).into(),
+            Some(50..75) => icon::wifi_3().size(size).into(),
+            Some(75..) => icon::wifi_4().size(size).into(),
         }
     }
 

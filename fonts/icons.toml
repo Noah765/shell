@@ -2,7 +2,7 @@ module = "icon"
 
 [icons]
 wifi_off = "wifi-off"
-wifi_weakest = "wifi-zero"
-wifi_weak = "wifi-low"
-wifi_strong = "wifi-high"
-wifi_strongest = "wifi"
+wifi_1 = "wifi-zero"
+wifi_2 = "wifi-low"
+wifi_3 = "wifi-high"
+wifi_4 = "wifi"
