@@ -21,9 +21,14 @@
       shell = (inputs.crane.mkLib pkgs).buildPackage {
         src = ./.;
         strictDeps = true;
-        nativeBuildInputs = [pkgs.pkg-config];
-        buildInputs = with pkgs; [libx11 libxcb libxkbcommon];
+
+        nativeBuildInputs = [pkgs.autoPatchelfHook pkgs.pkg-config];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libclang];
+        autoPatchelfIgnoreMissingDeps = ["libgcc_s.so.1"];
+
+        buildInputs = with pkgs; [libx11 libxcb libxkbcommon];
+        runtimeDependencies = [pkgs.vulkan-loader pkgs.wayland];
+
         meta.mainProgram = "shell";
       };
     });
