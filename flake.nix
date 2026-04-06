@@ -21,9 +21,10 @@
       shell = (inputs.crane.mkLib pkgs).buildPackage {
         src = ./.;
         strictDeps = true;
+        nativeBuildInputs = [pkgs.pkg-config];
         buildInputs = with pkgs; [libx11 libxcb libxkbcommon];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libclang];
-        nativeBuildInputs = [pkgs.pkg-config];
+        meta.mainProgram = "shell";
       };
     });
 
