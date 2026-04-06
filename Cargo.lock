@@ -3751,6 +3751,7 @@ dependencies = [
  "iced_lucide",
  "rusty_network_manager",
  "smithay-client-toolkit",
+ "tokio",
  "zbus",
 ]
 

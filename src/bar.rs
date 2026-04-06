@@ -16,7 +16,7 @@ use smithay_client_toolkit::{
 
 use crate::{
     icon,
-    shell::Message,
+    shell::{BatteryStatus, Message},
     workspace::{WindowGroup, Workspace},
 };
 
@@ -54,6 +54,7 @@ impl Bar {
         workspace: usize,
         workspaces: &'a [Workspace; 9],
         wifi_strength: Option<u8>,
+        battery: Option<(BatteryStatus, u8)>,
         now: DateTime<Local>,
     ) -> Element<'a, Message> {
         responsive(move |Size { width, .. }| {
@@ -66,9 +67,10 @@ impl Bar {
                     column![
                         space().height(Length::Fill),
                         self.view_wifi(width, wifi_strength),
+                        self.view_battery(width, battery),
                         text(now.format("%d\n%m").to_string()).size(14.0 / WIDTH * width)
                     ]
-                    .spacing(4.0 / WIDTH * width)
+                    .spacing(8.0 / WIDTH * width)
                     .height(Length::Fill)
                     .align_x(Horizontal::Center)
                 ]
@@ -175,12 +177,37 @@ impl Bar {
         let size = 16.0 / WIDTH * width;
 
         match strength {
-            None => icon::wifi_off().size(size).into(),
-            Some(0..25) => icon::wifi_1().size(size).into(),
-            Some(25..50) => icon::wifi_2().size(size).into(),
-            Some(50..75) => icon::wifi_3().size(size).into(),
-            Some(75..) => icon::wifi_4().size(size).into(),
+            None => icon::wifi_off().size(size).line_height(1.0).into(),
+            Some(0..25) => icon::wifi_1().size(size).line_height(1.0).into(),
+            Some(25..50) => icon::wifi_2().size(size).line_height(1.0).into(),
+            Some(50..75) => icon::wifi_3().size(size).line_height(1.0).into(),
+            Some(75..) => icon::wifi_4().size(size).line_height(1.0).into(),
         }
+    }
+
+    fn view_battery(
+        &self,
+        width: f32,
+        battery: Option<(BatteryStatus, u8)>,
+    ) -> Element<'_, Message> {
+        let Some(battery) = battery else {
+            return space().into();
+        };
+
+        let size = 18.0 / WIDTH * width;
+        let icon = match battery {
+            (BatteryStatus::Charging, _) => icon::battery_charging().size(size).line_height(1.0),
+            (BatteryStatus::Discharging, 0..25) => icon::battery_1().size(size).line_height(1.0),
+            (BatteryStatus::Discharging, 25..50) => icon::battery_2().size(size).line_height(1.0),
+            (BatteryStatus::Discharging, 50..75) => icon::battery_3().size(size).line_height(1.0),
+            (BatteryStatus::Discharging, 75..) => icon::battery_4().size(size).line_height(1.0),
+        };
+
+        let text = text!("{}%", battery.1)
+            .size(10.0 / WIDTH * width)
+            .line_height(1.0);
+
+        column![icon, text].align_x(Horizontal::Center).into()
     }
 
     pub fn surface_id(&self) -> Id {

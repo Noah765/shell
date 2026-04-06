@@ -1,3 +1,5 @@
+use std::io::ErrorKind;
+
 use chrono::{DateTime, Local};
 use hyprland::{
     data::{Monitor, Monitors},
@@ -28,6 +30,7 @@ pub struct Shell {
     background_bounds: Rectangle,
     active_monitor: String,
     wifi_strength: Option<u8>,
+    battery: Option<(BatteryStatus, u8)>,
     cursor_position: Point,
     now: DateTime<Local>,
 }
@@ -64,11 +67,18 @@ pub enum Message {
     },
     WorkspaceChanged(Option<Box<[Workspace; 9]>>),
     WifiStrengthChanged(Option<u8>),
+    BatteryTick(BatteryStatus, u8),
     CursorMoved {
         surface_id: Id,
         position: Point,
     },
     TimeTick(DateTime<Local>),
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum BatteryStatus {
+    Charging,
+    Discharging,
 }
 
 impl Shell {
@@ -79,6 +89,7 @@ impl Shell {
             background_bounds: Rectangle::new(Point::ORIGIN, Size::ZERO),
             active_monitor: Self::fetch_active_monitor(),
             wifi_strength: None,
+            battery: Self::fetch_battery(),
             cursor_position: Point::ORIGIN,
             now: Local::now(),
         }
@@ -180,6 +191,10 @@ impl Shell {
                 self.wifi_strength = x;
                 Task::none()
             }
+            Message::BatteryTick(status, capacity) => {
+                self.battery = Some((status, capacity));
+                Task::none()
+            }
             Message::CursorMoved {
                 surface_id,
                 position,
@@ -220,9 +235,13 @@ impl Shell {
                     .background
                     .view(self.background_bounds, self.cursor_position, self.now);
             } else if x.bar.surface_id() == surface_id {
-                return x
-                    .bar
-                    .view(x.workspace, &self.workspaces, self.wifi_strength, self.now);
+                return x.bar.view(
+                    x.workspace,
+                    &self.workspaces,
+                    self.wifi_strength,
+                    self.battery,
+                    self.now,
+                );
             }
         }
         unreachable!();
@@ -233,6 +252,7 @@ impl Shell {
             self.output_subscription(),
             self.hyprland_subscription(),
             self.wifi_subscription(),
+            self.battery_subscription(),
             self.mouse_subscription(),
             self.time_subscription(),
         ])
@@ -294,6 +314,31 @@ impl Shell {
         Subscription::run(|| stream::channel(64, wifi::wifi))
     }
 
+    fn battery_subscription(&self) -> Subscription<Message> {
+        if self.battery.is_none() {
+            return Subscription::none();
+        }
+
+        async fn tick() -> Message {
+            let status = match tokio::fs::read_to_string("/sys/class/power_supply/BAT0/status")
+                .await
+                .unwrap()
+                .trim_end()
+            {
+                "Charging" | "Full" => BatteryStatus::Charging,
+                _ => BatteryStatus::Discharging,
+            };
+            let capacity = tokio::fs::read_to_string("/sys/class/power_supply/BAT0/capacity")
+                .await
+                .unwrap()
+                .trim_end()
+                .parse()
+                .unwrap();
+            Message::BatteryTick(status, capacity)
+        }
+        time::repeat(tick, seconds(1))
+    }
+
     fn mouse_subscription(&self) -> Subscription<Message> {
         event::listen_with(|event, _, surface_id| match event {
             iced::Event::Mouse(mouse::Event::CursorMoved { position }) => {
@@ -321,5 +366,22 @@ impl Shell {
             .into_iter()
             .find_map(|x| (x.name == monitor).then_some(x.active_workspace.id as usize - 1))
             .unwrap()
+    }
+
+    fn fetch_battery() -> Option<(BatteryStatus, u8)> {
+        let status = match std::fs::read_to_string("/sys/class/power_supply/BAT0/status") {
+            Ok(x) => match x.trim_end() {
+                "Charging" | "Full" => BatteryStatus::Charging,
+                _ => BatteryStatus::Discharging,
+            },
+            Err(x) if x.kind() == ErrorKind::NotFound => return None,
+            Err(x) => panic!("{x}"),
+        };
+        let capacity = std::fs::read_to_string("/sys/class/power_supply/BAT0/capacity")
+            .unwrap()
+            .trim_end()
+            .parse()
+            .unwrap();
+        Some((status, capacity))
     }
 }

@@ -9,6 +9,7 @@ hyprland = { version = "0.4.0-beta.3", default-features = false, features = ["da
 iced = { git = "https://github.com/pop-os/iced", version = "0.14.0", default-features = false, features = ["cctk", "image", "tokio", "wgpu", "winit"] }
 rusty_network_manager = { version = "0.7.1", default-features = false, features = ["access_point", "active", "wireless"] }
 smithay-client-toolkit = "0.20.0"
+tokio = "1.51.0"
 zbus = { version = "5.14.0", default-features = false, features = ["tokio"] }
 
 [features]
