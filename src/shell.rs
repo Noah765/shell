@@ -27,17 +27,9 @@ pub struct Shell {
     workspaces: [Workspace; 9],
     background_bounds: Rectangle,
     active_monitor: String,
-    wifi_strength: Option<WifiStrength>,
+    wifi_strength: Option<u8>,
     cursor_position: Point,
     now: DateTime<Local>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum WifiStrength {
-    Weakest,
-    Weak,
-    Strong,
-    Strongest,
 }
 
 #[derive(Debug)]
@@ -185,12 +177,7 @@ impl Shell {
                 Task::none()
             }
             Message::WifiStrengthChanged(x) => {
-                self.wifi_strength = x.map(|x| match x {
-                    0..25 => WifiStrength::Weakest,
-                    25..50 => WifiStrength::Weak,
-                    50..75 => WifiStrength::Strong,
-                    75.. => WifiStrength::Strongest,
-                });
+                self.wifi_strength = x;
                 Task::none()
             }
             Message::CursorMoved {

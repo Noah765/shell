@@ -16,7 +16,7 @@ use smithay_client_toolkit::{
 
 use crate::{
     icon,
-    shell::{Message, WifiStrength},
+    shell::Message,
     workspace::{WindowGroup, Workspace},
 };
 
@@ -53,7 +53,7 @@ impl Bar {
         &'a self,
         workspace: usize,
         workspaces: &'a [Workspace; 9],
-        wifi_strength: Option<WifiStrength>,
+        wifi_strength: Option<u8>,
         now: DateTime<Local>,
     ) -> Element<'a, Message> {
         responsive(move |Size { width, .. }| {
@@ -171,15 +171,15 @@ impl Bar {
         }
     }
 
-    fn view_wifi(&self, width: f32, strength: Option<WifiStrength>) -> Element<'_, Message> {
+    fn view_wifi(&self, width: f32, strength: Option<u8>) -> Element<'_, Message> {
         let size = 16.0 / WIDTH * width;
 
         match strength {
             None => icon::wifi_off().size(size).into(),
-            Some(WifiStrength::Weakest) => icon::wifi_weakest().size(size).into(),
-            Some(WifiStrength::Weak) => icon::wifi_weak().size(size).into(),
-            Some(WifiStrength::Strong) => icon::wifi_strong().size(size).into(),
-            Some(WifiStrength::Strongest) => icon::wifi_strongest().size(size).into(),
+            Some(0..25) => icon::wifi_weakest().size(size).into(),
+            Some(25..50) => icon::wifi_weak().size(size).into(),
+            Some(50..75) => icon::wifi_strong().size(size).into(),
+            Some(75..) => icon::wifi_strongest().size(size).into(),
         }
     }
 
