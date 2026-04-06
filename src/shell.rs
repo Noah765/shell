@@ -1,4 +1,7 @@
-use std::io::ErrorKind;
+use std::{
+    io::ErrorKind,
+    path::{Path, PathBuf},
+};
 
 use chrono::{DateTime, Local};
 use hyprland::{
@@ -28,6 +31,9 @@ pub struct Shell {
     outputs: Vec<Output>,
     workspaces: [Workspace; 9],
     background_bounds: Rectangle,
+    wallpaper_background: PathBuf,
+    wallpaper_middle_ground: PathBuf,
+    wallpaper_foreground: PathBuf,
     active_monitor: String,
     wifi_strength: Option<u8>,
     battery: Option<(BatteryStatus, u8)>,
@@ -82,11 +88,18 @@ pub enum BatteryStatus {
 }
 
 impl Shell {
-    pub fn new() -> Self {
+    pub fn new(
+        wallpaper_background: &Path,
+        wallpaper_middle_ground: &Path,
+        wallpaper_foreground: &Path,
+    ) -> Self {
         Self {
             outputs: Vec::new(),
             workspaces: Workspace::fetch(),
             background_bounds: Rectangle::new(Point::ORIGIN, Size::ZERO),
+            wallpaper_background: PathBuf::from(wallpaper_background),
+            wallpaper_middle_ground: PathBuf::from(wallpaper_middle_ground),
+            wallpaper_foreground: PathBuf::from(wallpaper_foreground),
             active_monitor: Self::fetch_active_monitor(),
             wifi_strength: None,
             battery: Self::fetch_battery(),
@@ -231,9 +244,14 @@ impl Shell {
     pub fn view(&self, surface_id: Id) -> Element<'_, Message> {
         for x in &self.outputs {
             if x.background.surface_id() == surface_id {
-                return x
-                    .background
-                    .view(self.background_bounds, self.cursor_position, self.now);
+                return x.background.view(
+                    self.background_bounds,
+                    &self.wallpaper_background,
+                    &self.wallpaper_middle_ground,
+                    &self.wallpaper_foreground,
+                    self.cursor_position,
+                    self.now,
+                );
             } else if x.bar.surface_id() == surface_id {
                 return x.bar.view(
                     x.workspace,

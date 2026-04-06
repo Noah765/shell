@@ -1,4 +1,4 @@
-use std::sync::LazyLock;
+use std::path::Path;
 
 use chrono::{DateTime, Local};
 use iced::{
@@ -40,52 +40,38 @@ impl Background {
     pub fn view(
         &self,
         global_bounds: Rectangle,
+        background: &Path,
+        middle_ground: &Path,
+        foreground: &Path,
         cursor_position: Point,
         now: DateTime<Local>,
     ) -> Element<'_, Message> {
-        static BACKGROUND: LazyLock<Handle> =
-            LazyLock::new(|| Handle::from_bytes(&include_bytes!("../assets/background.png")[..]));
-        static MIDDLEGROUND: LazyLock<Handle> =
-            LazyLock::new(|| Handle::from_bytes(&include_bytes!("../assets/middleground.png")[..]));
-        static FOREGROUND: LazyLock<Handle> =
-            LazyLock::new(|| Handle::from_bytes(&include_bytes!("../assets/foreground.png")[..]));
-
         const BACKGROUND_SCALE: f32 = 1.0;
-        const MIDDLEGROUND_SCALE: f32 = 1.01;
+        const MIDDLE_GROUND_SCALE: f32 = 1.01;
         const FOREGROUND_SCALE: f32 = 1.03;
 
         stack![
-            self.view_layer(
-                BACKGROUND.clone(),
-                BACKGROUND_SCALE,
-                global_bounds,
-                cursor_position,
-            ),
+            self.view_layer(background, BACKGROUND_SCALE, global_bounds, cursor_position,),
             self.view_clock(now),
             self.view_layer(
-                MIDDLEGROUND.clone(),
-                MIDDLEGROUND_SCALE,
+                middle_ground,
+                MIDDLE_GROUND_SCALE,
                 global_bounds,
                 cursor_position,
             ),
-            self.view_layer(
-                FOREGROUND.clone(),
-                FOREGROUND_SCALE,
-                global_bounds,
-                cursor_position,
-            ),
+            self.view_layer(foreground, FOREGROUND_SCALE, global_bounds, cursor_position,),
         ]
         .into()
     }
 
     fn view_layer(
         &self,
-        handle: Handle,
+        image_path: &Path,
         scale: f32,
         global_bounds: Rectangle,
         cursor_position: Point,
     ) -> Element<'_, Message> {
-        float(image(handle).content_fit(ContentFit::Cover))
+        float(image(Handle::from_path(image_path)).content_fit(ContentFit::Cover))
             .scale(scale)
             .translate(move |viewport, _| {
                 let overflow_x = viewport.width * ((scale - 1.0) / 2.0);
