@@ -53,7 +53,18 @@
       });
     in {
       default = pkgs.mkShell {
-        packages = with pkgs; [cargo clippy comet libx11 libxcb libxkbcommon pkg-config (formatter pkgs)];
+        packages = with pkgs; [
+          cargo
+          clippy
+          comet
+          libx11
+          libxcb
+          libxkbcommon
+          pkg-config
+          rust-analyzer
+          rustc
+          (formatter pkgs)
+        ];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath (with pkgs; [libclang vulkan-loader wayland]);
       };
     });
