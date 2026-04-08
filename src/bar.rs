@@ -197,10 +197,10 @@ impl Bar {
         let size = 18.0 / WIDTH * width;
         let icon = match battery {
             (BatteryStatus::Charging, _) => icon::battery_charging().size(size).line_height(1.0),
-            (BatteryStatus::Discharging, 0..25) => icon::battery_1().size(size).line_height(1.0),
-            (BatteryStatus::Discharging, 25..50) => icon::battery_2().size(size).line_height(1.0),
-            (BatteryStatus::Discharging, 50..75) => icon::battery_3().size(size).line_height(1.0),
-            (BatteryStatus::Discharging, 75..) => icon::battery_4().size(size).line_height(1.0),
+            (BatteryStatus::Discharging, 0..14) => icon::battery_1().size(size).line_height(1.0),
+            (BatteryStatus::Discharging, 14..40) => icon::battery_2().size(size).line_height(1.0),
+            (BatteryStatus::Discharging, 40..66) => icon::battery_3().size(size).line_height(1.0),
+            (BatteryStatus::Discharging, 66..) => icon::battery_4().size(size).line_height(1.0),
         };
 
         let text = text!("{}%", battery.1)
