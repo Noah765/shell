@@ -44,7 +44,7 @@ fn main() -> iced::Result {
         icon_color: theme.palette().text,
     })
     .theme(Theme::custom(
-        "Everforest",
+        "Custom",
         Palette {
             background: cli.background_color,
             text: cli.text_color,
