@@ -1,6 +1,6 @@
 // Generated automatically by iced_lucide at build time.
 // Do not edit manually.
-// 407827eed8963e4ff0fedb48cae57ce133a15df27f65518fe8a784f402b31a48
+// b2dfd05fe1801955827e8c3842b328e3cc7c3722052de9a4d062a16dfede13f9
 use iced::Font;
 use iced::widget::{Text, text};
 
@@ -15,6 +15,11 @@ pub const ALL_ICONS: &[(&str, &str)] = &[
     ("battery_3", "\u{E057}"),
     ("battery_4", "\u{E055}"),
     ("battery_charging", "\u{E054}"),
+    ("volume_1", "\u{E1AC}"),
+    ("volume_2", "\u{E1A9}"),
+    ("volume_3", "\u{E1AA}"),
+    ("volume_4", "\u{E1AB}"),
+    ("volume_mute", "\u{E626}"),
     ("wifi_1", "\u{E5F9}"),
     ("wifi_2", "\u{E5F8}"),
     ("wifi_3", "\u{E5F7}"),
@@ -40,6 +45,26 @@ pub fn battery_4<'a>() -> Text<'a> {
 
 pub fn battery_charging<'a>() -> Text<'a> {
     icon("\u{E054}")
+}
+
+pub fn volume_1<'a>() -> Text<'a> {
+    icon("\u{E1AC}")
+}
+
+pub fn volume_2<'a>() -> Text<'a> {
+    icon("\u{E1A9}")
+}
+
+pub fn volume_3<'a>() -> Text<'a> {
+    icon("\u{E1AA}")
+}
+
+pub fn volume_4<'a>() -> Text<'a> {
+    icon("\u{E1AB}")
+}
+
+pub fn volume_mute<'a>() -> Text<'a> {
+    icon("\u{E626}")
 }
 
 pub fn wifi_1<'a>() -> Text<'a> {

@@ -7,6 +7,7 @@ use iced::{
 
 use crate::{cli::Cli, shell::Shell};
 
+mod audio;
 mod background;
 mod bar;
 mod cli;

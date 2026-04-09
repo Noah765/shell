@@ -24,7 +24,7 @@ use smithay_client_toolkit::{
     reexports::client::{Proxy, backend::ObjectId, protocol::wl_output::WlOutput},
 };
 
-use crate::{background::Background, bar::Bar, wifi, workspace::Workspace};
+use crate::{audio, background::Background, bar::Bar, wifi, workspace::Workspace};
 
 #[derive(Debug)]
 pub struct Shell {
@@ -36,6 +36,7 @@ pub struct Shell {
     wallpaper_foreground: PathBuf,
     active_monitor: String,
     wifi_strength: Option<u8>,
+    audio_volume: Option<u8>,
     battery: Option<(BatteryStatus, u8)>,
     cursor_position: Point,
     now: DateTime<Local>,
@@ -73,6 +74,7 @@ pub enum Message {
     },
     WorkspaceChanged(Option<Box<[Workspace; 9]>>),
     WifiStrengthChanged(Option<u8>),
+    AudioVolumeChanged(Option<u8>),
     BatteryTick(BatteryStatus, u8),
     CursorMoved {
         surface_id: Id,
@@ -102,6 +104,7 @@ impl Shell {
             wallpaper_foreground: PathBuf::from(wallpaper_foreground),
             active_monitor: Self::fetch_active_monitor(),
             wifi_strength: None,
+            audio_volume: None,
             battery: Self::fetch_battery(),
             cursor_position: Point::ORIGIN,
             now: Local::now(),
@@ -204,6 +207,10 @@ impl Shell {
                 self.wifi_strength = x;
                 Task::none()
             }
+            Message::AudioVolumeChanged(x) => {
+                self.audio_volume = x;
+                Task::none()
+            }
             Message::BatteryTick(status, capacity) => {
                 self.battery = Some((status, capacity));
                 Task::none()
@@ -257,6 +264,7 @@ impl Shell {
                     x.workspace,
                     &self.workspaces,
                     self.wifi_strength,
+                    self.audio_volume,
                     self.battery,
                     self.now,
                 );
@@ -270,6 +278,7 @@ impl Shell {
             self.output_subscription(),
             self.hyprland_subscription(),
             self.wifi_subscription(),
+            self.audio_subscription(),
             self.battery_subscription(),
             self.mouse_subscription(),
             self.time_subscription(),
@@ -330,6 +339,10 @@ impl Shell {
 
     fn wifi_subscription(&self) -> Subscription<Message> {
         Subscription::run(|| stream::channel(64, wifi::wifi))
+    }
+
+    fn audio_subscription(&self) -> Subscription<Message> {
+        Subscription::run(audio::audio)
     }
 
     fn battery_subscription(&self) -> Subscription<Message> {

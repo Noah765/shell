@@ -1,6 +1,11 @@
 module = "icon"
 
 [icons]
+volume_mute = "volume-off"
+volume_1 = "volume-x"
+volume_2 = "volume"
+volume_3 = "volume-1"
+volume_4 = "volume-2"
 wifi_off = "wifi-off"
 wifi_1 = "wifi-zero"
 wifi_2 = "wifi-low"

@@ -22,11 +22,11 @@
         src = ./.;
         strictDeps = true;
 
-        nativeBuildInputs = [pkgs.autoPatchelfHook pkgs.pkg-config];
+        nativeBuildInputs = with pkgs; [autoPatchelfHook clang pkg-config];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libclang];
         autoPatchelfIgnoreMissingDeps = ["libgcc_s.so.1"];
 
-        buildInputs = with pkgs; [libx11 libxcb libxkbcommon];
+        buildInputs = with pkgs; [libx11 libxcb libxkbcommon pipewire];
         runtimeDependencies = [pkgs.vulkan-loader pkgs.wayland];
 
         meta.mainProgram = "shell";
@@ -55,11 +55,13 @@
       default = pkgs.mkShell {
         packages = with pkgs; [
           cargo
+          clang
           clippy
           comet
           libx11
           libxcb
           libxkbcommon
+          pipewire
           pkg-config
           rust-analyzer
           rustc

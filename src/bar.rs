@@ -54,6 +54,7 @@ impl Bar {
         workspace: usize,
         workspaces: &'a [Workspace; 9],
         wifi_strength: Option<u8>,
+        audio_volume: Option<u8>,
         battery: Option<(BatteryStatus, u8)>,
         now: DateTime<Local>,
     ) -> Element<'a, Message> {
@@ -67,6 +68,7 @@ impl Bar {
                     column![
                         space().height(Length::Fill),
                         self.view_wifi(width, wifi_strength),
+                        self.view_audio_volume(width, audio_volume),
                         self.view_battery(width, battery),
                         text(now.format("%d\n%m").to_string()).size(14.0 / WIDTH * width)
                     ]
@@ -174,7 +176,7 @@ impl Bar {
     }
 
     fn view_wifi(&self, width: f32, strength: Option<u8>) -> Element<'_, Message> {
-        let size = 16.0 / WIDTH * width;
+        let size = 18.0 / WIDTH * width;
 
         match strength {
             None => icon::wifi_off().size(size).line_height(1.0).into(),
@@ -183,6 +185,23 @@ impl Bar {
             Some(50..75) => icon::wifi_3().size(size).line_height(1.0).into(),
             Some(75..) => icon::wifi_4().size(size).line_height(1.0).into(),
         }
+    }
+
+    fn view_audio_volume(&self, width: f32, volume: Option<u8>) -> Element<'_, Message> {
+        let size = 16.0 / WIDTH * width;
+        let icon = match volume {
+            None => icon::volume_mute().size(size).line_height(1.1),
+            Some(0) => icon::volume_1().size(size).line_height(1.1),
+            Some(1..34) => icon::volume_2().size(size).line_height(1.1),
+            Some(34..67) => icon::volume_3().size(size).line_height(1.1),
+            Some(67..) => icon::volume_4().size(size).line_height(1.1),
+        };
+
+        let text = text!("{}%", volume.unwrap_or(0))
+            .size(10.0 / WIDTH * width)
+            .line_height(1.0);
+
+        column![icon, text].align_x(Horizontal::Center).into()
     }
 
     fn view_battery(
