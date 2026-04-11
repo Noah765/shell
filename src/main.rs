@@ -7,14 +7,11 @@ use iced::{
 
 use crate::{cli::Cli, shell::Shell};
 
-mod audio;
 mod background;
 mod bar;
 mod cli;
 mod icon;
 mod shell;
-mod wifi;
-mod workspace;
 
 fn main() -> iced::Result {
     let mut cli = Cli::parse();

@@ -1,36 +1,104 @@
 use chrono::{DateTime, Local};
 use iced::{
-    Background, Border, Color, Element, Length, Radius, Size, Task, Theme,
+    Background, Border, Element, Length, Radius, Size, Subscription, Task, Theme,
     alignment::Horizontal,
-    border, padding,
+    event::{
+        self, PlatformSpecific,
+        wayland::{self, OutputEvent},
+    },
+    padding,
     platform_specific::shell::commands::layer_surface,
     runtime::platform_specific::wayland::layer_surface::{
         IcedMargin, IcedOutput, SctkLayerSurfaceSettings,
     },
-    widget::{Container, column, container::Style, responsive, row, space, text},
+    widget::{Container, column, container::Style, responsive, space, text},
     window::Id,
 };
 use smithay_client_toolkit::{
-    reexports::client::protocol::wl_output::WlOutput, shell::wlr_layer::Anchor,
+    reexports::client::{Proxy, protocol::wl_output::WlOutput},
+    shell::wlr_layer::Anchor,
 };
 
-use crate::{
-    icon,
-    shell::{BatteryStatus, Message},
-    workspace::{WindowGroup, Workspace},
+use crate::bar::{
+    audio::{Audio, AudioMessage},
+    battery::{Battery, BatteryMessage},
+    wifi::{WiFi, WiFiMessage},
+    workspace_overview::{WorkspaceOverview, WorkspaceOverviewMessage},
 };
 
-const WIDTH: f32 = 32.0;
+mod audio;
+mod battery;
+mod wifi;
+mod workspace_overview;
+
+const BAR_WIDTH: f32 = 32.0;
 
 #[derive(Debug)]
 pub struct Bar {
+    outputs: Vec<Output>,
+    now: DateTime<Local>,
+    workspace_overview: WorkspaceOverview,
+    wifi: WiFi,
+    audio: Audio,
+    battery: Battery,
+}
+
+#[derive(Debug)]
+struct Output {
+    id: u32,
     surface_id: Id,
 }
 
+#[derive(Clone, Debug)]
+pub enum BarMessage {
+    OutputCreated(WlOutput),
+    OutputRemoved(u32),
+    TimeTick(DateTime<Local>),
+    WorkspaceOverview(WorkspaceOverviewMessage),
+    WiFi(WiFiMessage),
+    Audio(AudioMessage),
+    Battery(BatteryMessage),
+}
+
 impl Bar {
-    pub fn new(output: WlOutput) -> (Self, Task<Message>) {
+    pub fn new(now: DateTime<Local>) -> Self {
+        Self {
+            outputs: Vec::new(),
+            now,
+            workspace_overview: WorkspaceOverview::new(),
+            wifi: WiFi::new(),
+            audio: Audio::new(),
+            battery: Battery::new(),
+        }
+    }
+
+    pub fn update(&mut self, message: BarMessage) -> Task<BarMessage> {
+        match message {
+            BarMessage::OutputCreated(x) => return self.create_output(x),
+            BarMessage::OutputRemoved(x) => return self.remove_output(x),
+            BarMessage::TimeTick(x) => self.now = x,
+            BarMessage::WorkspaceOverview(x) => {
+                return self
+                    .workspace_overview
+                    .update(x)
+                    .map(BarMessage::WorkspaceOverview);
+            }
+            BarMessage::WiFi(x) => self.wifi.update(x),
+            BarMessage::Audio(x) => self.audio.update(x),
+            BarMessage::Battery(x) => self.battery.update(x),
+        }
+        Task::none()
+    }
+
+    fn create_output(&mut self, output: WlOutput) -> Task<BarMessage> {
         let surface_id = Id::unique();
-        let task = layer_surface::get_layer_surface(SctkLayerSurfaceSettings {
+
+        self.outputs.push(Output {
+            id: output.id().protocol_id(),
+            surface_id,
+        });
+
+        layer_surface::get_layer_surface(SctkLayerSurfaceSettings {
             id: surface_id,
             input_zone: Some(Vec::new()),
             anchor: Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT,
@@ -42,198 +110,83 @@ impl Bar {
                 bottom: 5,
                 left: 5,
             },
-            size: Some((Some(WIDTH as u32), None)),
-            exclusive_zone: WIDTH as i32,
+            size: Some((Some(BAR_WIDTH as u32), None)),
+            exclusive_zone: BAR_WIDTH as i32,
             ..Default::default()
-        });
-        (Self { surface_id }, task)
+        })
     }
 
-    pub fn view<'a>(
-        &'a self,
-        workspace: usize,
-        workspaces: &'a [Workspace; 9],
-        wifi_strength: Option<u8>,
-        audio_volume: Option<u8>,
-        battery: Option<(BatteryStatus, u8)>,
-        now: DateTime<Local>,
-    ) -> Element<'a, Message> {
-        responsive(move |Size { width, .. }| {
+    fn remove_output(&mut self, id: u32) -> Task<BarMessage> {
+        let i = self.outputs.iter().position(|x| x.id == id).unwrap();
+        let output = self.outputs.swap_remove(i);
+
+        layer_surface::destroy_layer_surface(output.surface_id)
+    }
+
+    pub fn view(&self, surface_id: Id) -> Option<Element<'_, BarMessage>> {
+        let output_id = self.outputs.iter().find(|x| x.surface_id == surface_id)?.id;
+
+        let view = responsive(move |Size { width, .. }| {
             Container::new(
                 column![
-                    text(now.format("%H\n%M").to_string())
-                        .size(14.0 / WIDTH * width)
+                    text(self.now.format("%H\n%M").to_string())
+                        .size(14.0 / BAR_WIDTH * width)
                         .height(Length::Fill),
-                    self.view_workspaces(width, workspaces, workspace),
+                    self.workspace_overview
+                        .view(output_id, width)
+                        .map(BarMessage::WorkspaceOverview),
                     column![
                         space().height(Length::Fill),
-                        self.view_wifi(width, wifi_strength),
-                        self.view_audio_volume(width, audio_volume),
-                        self.view_battery(width, battery),
-                        text(now.format("%d\n%m").to_string()).size(14.0 / WIDTH * width)
+                        self.wifi.view(width).map(BarMessage::WiFi),
+                        self.audio.view(width).map(BarMessage::Audio),
+                        self.battery.view(width).map(BarMessage::Battery),
+                        text(self.now.format("%d\n%m").to_string()).size(14.0 / BAR_WIDTH * width)
                     ]
-                    .spacing(8.0 / WIDTH * width)
+                    .spacing(8.0 / BAR_WIDTH * width)
                     .height(Length::Fill)
                     .align_x(Horizontal::Center)
                 ]
                 .width(Length::Fill)
                 .align_x(Horizontal::Center),
             )
-            .padding(padding::vertical(8.0 / WIDTH * width))
+            .padding(padding::vertical(8.0 / BAR_WIDTH * width))
             .style(move |theme: &Theme| Style {
                 background: Some(Background::Color(theme.palette().background)),
                 border: Border {
                     color: theme.extended_palette().background.strong.color,
                     width: 1.0,
-                    radius: Radius::new(12.0 / WIDTH * width),
+                    radius: Radius::new(12.0 / BAR_WIDTH * width),
                 },
                 ..Default::default()
             })
             .into()
+        });
+        Some(view.into())
+    }
+
+    pub fn subscription(&self) -> Subscription<BarMessage> {
+        Subscription::batch([
+            self.output_subscription(),
+            self.workspace_overview
+                .subscription()
+                .map(BarMessage::WorkspaceOverview),
+            self.wifi.subscription().map(BarMessage::WiFi),
+            self.audio.subscription().map(BarMessage::Audio),
+            self.battery.subscription().map(BarMessage::Battery),
+        ])
+    }
+
+    fn output_subscription(&self) -> Subscription<BarMessage> {
+        event::listen_with(|event, _, _| match event {
+            iced::Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::Output(
+                event,
+                output,
+            ))) => match event {
+                OutputEvent::Created(_) => Some(BarMessage::OutputCreated(output)),
+                OutputEvent::InfoUpdate(_) => None,
+                OutputEvent::Removed => Some(BarMessage::OutputRemoved(output.id().protocol_id())),
+            },
+            _ => None,
         })
-        .into()
-    }
-
-    fn view_workspaces(
-        &self,
-        width: f32,
-        workspaces: &[Workspace; 9],
-        workspace: usize,
-    ) -> Element<'_, Message> {
-        column(workspaces.iter().enumerate().map(|(i, x)| {
-            let active = i == workspace;
-            let content = match x {
-                Workspace {
-                    fullscreen: true, ..
-                } => Container::new(space())
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .style(move |theme: &Theme| Style {
-                        background: Some(Background::Color(self.workspace_color(theme, active))),
-                        border: border::rounded(4.0 / WIDTH * width),
-                        ..Style::default()
-                    })
-                    .into(),
-                Workspace { group: None, .. } => Container::new(space())
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .style(move |theme: &Theme| Style {
-                        border: Border {
-                            color: self.workspace_color(theme, active),
-                            width: 1.5 / WIDTH * width,
-                            radius: Radius::new(width),
-                        },
-                        ..Style::default()
-                    })
-                    .into(),
-                Workspace { group: Some(x), .. } => {
-                    self.view_workspace_window_group(width, x, active)
-                }
-            };
-            Container::new(content)
-                .width(16.0 / WIDTH * width)
-                .height(16.0 / WIDTH * width)
-                .into()
-        }))
-        .spacing(4.0 / WIDTH * width)
-        .into()
-    }
-
-    fn workspace_color(&self, theme: &Theme, active: bool) -> Color {
-        if active {
-            theme.palette().primary
-        } else {
-            theme.extended_palette().background.strong.color
-        }
-    }
-
-    fn view_workspace_window_group(
-        &self,
-        width: f32,
-        group: &WindowGroup,
-        active: bool,
-    ) -> Element<'_, Message> {
-        match group {
-            WindowGroup::Single => Container::new(space())
-                .width(Length::Fill)
-                .height(Length::Fill)
-                .style(move |theme: &Theme| Style {
-                    background: Some(Background::Color(self.workspace_color(theme, active))),
-                    border: border::rounded(width),
-                    ..Style::default()
-                })
-                .into(),
-            WindowGroup::Horizontal(children) | WindowGroup::Vertical(children) => {
-                let children = children
-                    .iter()
-                    .map(|x| self.view_workspace_window_group(width, x, active));
-                match group {
-                    WindowGroup::Horizontal(_) => row(children).spacing(2.0 / WIDTH * width).into(),
-                    _ => column(children).spacing(2.0 / WIDTH * width).into(),
-                }
-            }
-        }
-    }
-
-    fn view_wifi(&self, width: f32, strength: Option<u8>) -> Element<'_, Message> {
-        let size = 18.0 / WIDTH * width;
-
-        match strength {
-            None => icon::wifi_off().size(size).line_height(1.0).into(),
-            Some(0..25) => icon::wifi_1().size(size).line_height(1.0).into(),
-            Some(25..50) => icon::wifi_2().size(size).line_height(1.0).into(),
-            Some(50..75) => icon::wifi_3().size(size).line_height(1.0).into(),
-            Some(75..) => icon::wifi_4().size(size).line_height(1.0).into(),
-        }
-    }
-
-    fn view_audio_volume(&self, width: f32, volume: Option<u8>) -> Element<'_, Message> {
-        let size = 16.0 / WIDTH * width;
-        let icon = match volume {
-            None => icon::volume_mute().size(size).line_height(1.1),
-            Some(0) => icon::volume_1().size(size).line_height(1.1),
-            Some(1..34) => icon::volume_2().size(size).line_height(1.1),
-            Some(34..67) => icon::volume_3().size(size).line_height(1.1),
-            Some(67..) => icon::volume_4().size(size).line_height(1.1),
-        };
-
-        let text = text!("{}%", volume.unwrap_or(0))
-            .size(10.0 / WIDTH * width)
-            .line_height(1.0);
-
-        column![icon, text].align_x(Horizontal::Center).into()
-    }
-
-    fn view_battery(
-        &self,
-        width: f32,
-        battery: Option<(BatteryStatus, u8)>,
-    ) -> Element<'_, Message> {
-        let Some(battery) = battery else {
-            return space().into();
-        };
-
-        let size = 18.0 / WIDTH * width;
-        let icon = match battery {
-            (BatteryStatus::Charging, _) => icon::battery_charging().size(size).line_height(1.0),
-            (BatteryStatus::Discharging, 0..14) => icon::battery_1().size(size).line_height(1.0),
-            (BatteryStatus::Discharging, 14..40) => icon::battery_2().size(size).line_height(1.0),
-            (BatteryStatus::Discharging, 40..66) => icon::battery_3().size(size).line_height(1.0),
-            (BatteryStatus::Discharging, 66..) => icon::battery_4().size(size).line_height(1.0),
-        };
-
-        let text = text!("{}%", battery.1)
-            .size(10.0 / WIDTH * width)
-            .line_height(1.0);
-
-        column![icon, text].align_x(Horizontal::Center).into()
-    }
-
-    pub fn surface_id(&self) -> Id {
-        self.surface_id
-    }
-
-    pub fn destroy(self) -> Task<Message> {
-        layer_surface::destroy_layer_surface(self.surface_id)
     }
 }
