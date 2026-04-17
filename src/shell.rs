@@ -65,13 +65,9 @@ impl Shell {
 
     pub fn subscription(&self) -> Subscription<Message> {
         Subscription::batch([
-            self.time_subscription(),
+            time::every(seconds(10)).map(|_| Message::TimeTick(Local::now())),
             self.background.subscription().map(Message::Background),
             self.bar.subscription().map(Message::Bar),
         ])
-    }
-
-    fn time_subscription(&self) -> Subscription<Message> {
-        time::every(seconds(10)).map(|_| Message::TimeTick(Local::now()))
     }
 }
