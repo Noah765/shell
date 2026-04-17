@@ -3,8 +3,7 @@ use iced::{
     futures::{SinkExt, StreamExt, channel::mpsc::Sender, select, stream::Fuse},
     stream,
 };
-use rusty_network_manager::{AccessPointProxy, ActiveProxy, NetworkManagerProxy, WirelessProxy};
-use zbus::{Connection, proxy::PropertyStream, zvariant::OwnedObjectPath};
+use zbus::{Connection, proxy, proxy::PropertyStream, zvariant::OwnedObjectPath};
 
 use crate::{bar::BAR_WIDTH, icon};
 
@@ -90,18 +89,62 @@ impl WiFi {
             return;
         }
 
-        let active = ActiveProxy::new_from_path(path, connection).await.unwrap();
+        let active = ActiveConnectionProxy::builder(connection)
+            .path(path)
+            .unwrap()
+            .build()
+            .await
+            .unwrap();
         let device = active.devices().await.unwrap().into_iter().next().unwrap();
 
-        let wireless = WirelessProxy::new_from_path(device, connection)
+        let wireless = WirelessDeviceProxy::builder(connection)
+            .path(device)
+            .unwrap()
+            .build()
             .await
             .unwrap();
 
         let access_point_path = wireless.active_access_point().await.unwrap();
-        let access_point = AccessPointProxy::new_from_path(access_point_path, connection)
+        let access_point = AccessPointProxy::builder(connection)
+            .path(access_point_path)
+            .unwrap()
+            .build()
             .await
             .unwrap();
 
         *stream = Some(access_point.receive_strength_changed().await.fuse());
     }
+}
+
+#[proxy(interface = "org.freedesktop.NetworkManager", assume_defaults = true)]
+trait NetworkManager {
+    #[zbus(property)]
+    fn primary_connection(&self) -> zbus::Result<OwnedObjectPath>;
+}
+
+#[proxy(
+    interface = "org.freedesktop.NetworkManager.Connection.Active",
+    assume_defaults = true
+)]
+trait ActiveConnection {
+    #[zbus(property)]
+    fn devices(&self) -> zbus::Result<Vec<OwnedObjectPath>>;
+}
+
+#[proxy(
+    interface = "org.freedesktop.NetworkManager.Device.Wireless",
+    assume_defaults = true
+)]
+trait WirelessDevice {
+    #[zbus(property)]
+    fn active_access_point(&self) -> zbus::Result<OwnedObjectPath>;
+}
+
+#[proxy(
+    interface = "org.freedesktop.NetworkManager.AccessPoint",
+    assume_defaults = true
+)]
+trait AccessPoint {
+    #[zbus(property)]
+    fn strength(&self) -> zbus::Result<u8>;
 }
