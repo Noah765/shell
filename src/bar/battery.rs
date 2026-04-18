@@ -49,7 +49,7 @@ impl Battery {
 
     pub fn view(&self, width: f32) -> Element<'_, BatteryMessage> {
         let Some(battery) = self.0 else {
-            return space().into();
+            return space().height(0).into();
         };
 
         let size = 18.0 / BAR_WIDTH * width;
