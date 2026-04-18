@@ -123,6 +123,7 @@ trait NetworkManager {
 }
 
 #[proxy(
+    default_service = "org.freedesktop.NetworkManager",
     interface = "org.freedesktop.NetworkManager.Connection.Active",
     assume_defaults = true
 )]
@@ -132,6 +133,7 @@ trait ActiveConnection {
 }
 
 #[proxy(
+    default_service = "org.freedesktop.NetworkManager",
     interface = "org.freedesktop.NetworkManager.Device.Wireless",
     assume_defaults = true
 )]
@@ -141,6 +143,7 @@ trait WirelessDevice {
 }
 
 #[proxy(
+    default_service = "org.freedesktop.NetworkManager",
     interface = "org.freedesktop.NetworkManager.AccessPoint",
     assume_defaults = true
 )]
