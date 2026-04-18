@@ -37,7 +37,7 @@ fn main() -> iced::Result {
         weight: Weight::Medium,
         ..Default::default()
     })
-    .style(|_, theme: &Theme| Style {
+    .style(|_, theme| Style {
         background_color: Color::TRANSPARENT,
         text_color: theme.palette().text,
         icon_color: theme.palette().text,

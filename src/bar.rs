@@ -1,6 +1,6 @@
 use chrono::{DateTime, Local};
 use iced::{
-    Background, Border, Element, Length, Radius, Size, Subscription, Task, Theme,
+    Background, Border, Element, Length, Radius, Size, Subscription, Task,
     alignment::Horizontal,
     event::{
         self, PlatformSpecific,
@@ -150,7 +150,7 @@ impl Bar {
                 .align_x(Horizontal::Center),
             )
             .padding(padding::vertical(8.0 / BAR_WIDTH * width))
-            .style(move |theme: &Theme| Style {
+            .style(move |theme| Style {
                 background: Some(Background::Color(theme.palette().background)),
                 border: Border {
                     color: theme.extended_palette().background.strong.color,

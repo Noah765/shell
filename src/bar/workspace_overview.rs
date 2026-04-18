@@ -315,7 +315,7 @@ impl WorkspaceOverview {
                 } => Container::new(space())
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .style(move |theme: &Theme| Style {
+                    .style(move |theme| Style {
                         background: Some(Background::Color(self.workspace_color(theme, active))),
                         border: border::rounded(4.0 / BAR_WIDTH * width),
                         ..Style::default()
@@ -324,7 +324,7 @@ impl WorkspaceOverview {
                 Workspace { group: None, .. } => Container::new(space())
                     .width(Length::Fill)
                     .height(Length::Fill)
-                    .style(move |theme: &Theme| Style {
+                    .style(move |theme| Style {
                         border: Border {
                             color: self.workspace_color(theme, active),
                             width: 1.5 / BAR_WIDTH * width,
@@ -364,7 +364,7 @@ impl WorkspaceOverview {
             WindowGroup::Single => Container::new(space())
                 .width(Length::Fill)
                 .height(Length::Fill)
-                .style(move |theme: &Theme| Style {
+                .style(move |theme| Style {
                     background: Some(Background::Color(self.workspace_color(theme, active))),
                     border: border::rounded(width),
                     ..Style::default()
