@@ -3,7 +3,7 @@ use iced::{
     futures::{SinkExt, StreamExt, channel::mpsc::Sender, select, stream::Fuse},
     stream,
 };
-use zbus::{Connection, proxy, proxy::PropertyStream, zvariant::OwnedObjectPath};
+use zbus::{Connection, blocking, proxy, proxy::PropertyStream, zvariant::OwnedObjectPath};
 
 use crate::{bar::BAR_WIDTH, icon};
 
@@ -15,7 +15,39 @@ pub struct WiFiMessage(Option<u8>);
 
 impl WiFi {
     pub fn new() -> Self {
-        Self(None)
+        Self(Self::fetch_wifi_strength())
+    }
+
+    fn fetch_wifi_strength() -> Option<u8> {
+        let connection = blocking::Connection::system().unwrap();
+        let network_manager = NetworkManagerProxyBlocking::new(&connection).unwrap();
+
+        let primary_connection = network_manager.primary_connection().unwrap();
+        if primary_connection.as_ref() == "/" {
+            return None;
+        }
+
+        let active = ActiveConnectionProxyBlocking::builder(&connection)
+            .path(primary_connection)
+            .unwrap()
+            .build()
+            .unwrap();
+        let device = active.devices().unwrap().into_iter().next().unwrap();
+
+        let wireless = WirelessDeviceProxyBlocking::builder(&connection)
+            .path(device)
+            .unwrap()
+            .build()
+            .unwrap();
+
+        let access_point_path = wireless.active_access_point().unwrap();
+        let access_point = AccessPointProxyBlocking::builder(&connection)
+            .path(access_point_path)
+            .unwrap()
+            .build()
+            .unwrap();
+
+        Some(access_point.strength().unwrap())
     }
 
     pub fn update(&mut self, message: WiFiMessage) {
