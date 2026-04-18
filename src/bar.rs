@@ -136,7 +136,7 @@ impl Bar {
                         .view(output_id, width)
                         .map(BarMessage::WorkspaceOverview),
                     column![
-                        space().height(Length::Fill),
+                        space::vertical(),
                         self.wifi.view(width).map(BarMessage::WiFi),
                         self.audio.view(width).map(BarMessage::Audio),
                         self.battery.view(width).map(BarMessage::Battery),
