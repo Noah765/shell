@@ -9,10 +9,7 @@ use iced::{
         wayland::{self, OutputEvent},
     },
     font::{Family, Weight},
-    platform_specific::shell::commands::{
-        layer_surface,
-        subsurface::{Anchor, Layer},
-    },
+    platform_specific::shell::commands::layer_surface,
     runtime::platform_specific::wayland::layer_surface::{IcedOutput, SctkLayerSurfaceSettings},
     widget::{center, float, image, responsive, space, stack, text},
     window::Id,
@@ -20,6 +17,7 @@ use iced::{
 use smithay_client_toolkit::{
     output::OutputInfo,
     reexports::client::{Proxy, protocol::wl_output::WlOutput},
+    shell::wlr_layer::{Anchor, Layer},
 };
 
 #[derive(Debug)]
