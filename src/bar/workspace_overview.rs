@@ -303,15 +303,12 @@ impl WorkspaceOverview {
     }
 
     pub fn view(&self, output_id: u32, width: f32) -> Element<'_, WorkspaceOverviewMessage> {
-        let active_workspace = self
-            .outputs
-            .iter()
-            .find(|x| x.id == output_id)
-            .unwrap()
-            .workspace;
+        let Some(output) = self.outputs.iter().find(|x| x.id == output_id) else {
+            return space().into();
+        };
 
         column(self.workspaces.iter().enumerate().map(|(i, x)| {
-            let active = i == active_workspace;
+            let active = i == output.workspace;
             let content = match x {
                 Workspace {
                     fullscreen: true, ..
