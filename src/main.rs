@@ -10,6 +10,7 @@ use crate::{cli::Cli, shell::Shell};
 mod background;
 mod bar;
 mod cli;
+mod debug;
 mod icon;
 mod shell;
 
