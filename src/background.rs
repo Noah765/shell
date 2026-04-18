@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use chrono::{DateTime, Local};
 use iced::{
@@ -20,13 +20,12 @@ use smithay_client_toolkit::{
     shell::wlr_layer::{Anchor, Layer},
 };
 
+use crate::cli::Cli;
+
 #[derive(Debug)]
 pub struct Background {
     outputs: Vec<Output>,
     global_bounds: Rectangle,
-    wallpaper_background: PathBuf,
-    wallpaper_middle_ground: PathBuf,
-    wallpaper_foreground: PathBuf,
     cursor_position: Point,
     now: DateTime<Local>,
 }
@@ -48,18 +47,10 @@ pub enum BackgroundMessage {
 }
 
 impl Background {
-    pub fn new(
-        wallpaper_background: &Path,
-        wallpaper_middle_ground: &Path,
-        wallpaper_foreground: &Path,
-        now: DateTime<Local>,
-    ) -> Self {
+    pub fn new(now: DateTime<Local>) -> Self {
         Self {
             outputs: Vec::new(),
             global_bounds: Rectangle::new(Point::ORIGIN, Size::ZERO),
-            wallpaper_background: PathBuf::from(wallpaper_background),
-            wallpaper_middle_ground: PathBuf::from(wallpaper_middle_ground),
-            wallpaper_foreground: PathBuf::from(wallpaper_foreground),
             cursor_position: Point::ORIGIN,
             now,
         }
@@ -128,21 +119,17 @@ impl Background {
     }
 
     fn move_cursor(&mut self, surface_id: Id, position: Point) -> Task<BackgroundMessage> {
-        let output_position = self
-            .outputs
-            .iter()
-            .find(|x| x.surface_id == surface_id)
-            .unwrap()
-            .bounds
-            .position();
+        let Some(output) = self.outputs.iter().find(|x| x.surface_id == surface_id) else {
+            return Task::none();
+        };
         self.cursor_position = Point {
-            x: output_position.x + position.x,
-            y: output_position.y + position.y,
+            x: output.bounds.x + position.x,
+            y: output.bounds.y + position.y,
         };
         Task::none()
     }
 
-    pub fn view(&self, surface_id: Id) -> Option<Element<'_, BackgroundMessage>> {
+    pub fn view(&self, cli: &Cli, surface_id: Id) -> Option<Element<'_, BackgroundMessage>> {
         if self.outputs.iter().all(|x| x.surface_id != surface_id) {
             return None;
         }
@@ -153,20 +140,20 @@ impl Background {
 
         let view = stack![
             self.view_layer(
-                &self.wallpaper_background,
+                &cli.wallpaper_background,
                 BACKGROUND_SCALE,
                 self.global_bounds,
                 self.cursor_position,
             ),
             self.view_clock(self.now),
             self.view_layer(
-                &self.wallpaper_middle_ground,
+                &cli.wallpaper_middle_ground,
                 MIDDLE_GROUND_SCALE,
                 self.global_bounds,
                 self.cursor_position,
             ),
             self.view_layer(
-                &self.wallpaper_foreground,
+                &cli.wallpaper_foreground,
                 FOREGROUND_SCALE,
                 self.global_bounds,
                 self.cursor_position,

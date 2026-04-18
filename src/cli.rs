@@ -49,6 +49,30 @@ pub struct Cli {
     #[arg(long, value_name = "COLOR")]
     pub primary_color: iced::Color,
 
+    /// The red color
+    #[arg(long, value_name = "COLOR")]
+    pub red: iced::Color,
+
+    /// The green color
+    #[arg(long, value_name = "COLOR")]
+    pub green: iced::Color,
+
+    /// The yellow color
+    #[arg(long, value_name = "COLOR")]
+    pub yellow: iced::Color,
+
+    /// The blue color
+    #[arg(long, value_name = "COLOR")]
+    pub blue: iced::Color,
+
+    /// The magenta color
+    #[arg(long, value_name = "COLOR")]
+    pub magenta: iced::Color,
+
+    /// The cyan color
+    #[arg(long, value_name = "COLOR")]
+    pub cyan: iced::Color,
+
     /// The bar opacity
     #[arg(long, value_name = "OPACITY")]
     pub bar_opacity: f32,

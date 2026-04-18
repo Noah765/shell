@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use chrono::{DateTime, Local};
 use iced::{
     Element, Subscription, Task,
@@ -11,12 +9,16 @@ use iced::{
 use crate::{
     background::{Background, BackgroundMessage},
     bar::{Bar, BarMessage},
+    calculator::{Calculator, CalculatorMessage},
+    cli::Cli,
 };
 
 #[derive(Debug)]
 pub struct Shell {
+    cli: Cli,
     background: Background,
     bar: Bar,
+    calculator: Calculator,
 }
 
 #[derive(Clone, Debug)]
@@ -24,24 +26,18 @@ pub enum Message {
     TimeTick(DateTime<Local>),
     Background(BackgroundMessage),
     Bar(BarMessage),
+    Calculator(CalculatorMessage),
 }
 
 impl Shell {
-    pub fn new(
-        wallpaper_background: &Path,
-        wallpaper_middle_ground: &Path,
-        wallpaper_foreground: &Path,
-    ) -> Self {
+    pub fn new(cli: Cli) -> Self {
         let now = Local::now();
 
         Self {
-            background: Background::new(
-                wallpaper_background,
-                wallpaper_middle_ground,
-                wallpaper_foreground,
-                now,
-            ),
+            cli,
+            background: Background::new(now),
             bar: Bar::new(now),
+            calculator: Calculator::new(),
         }
     }
 
@@ -53,14 +49,20 @@ impl Shell {
             ]),
             Message::Background(x) => self.background.update(x).map(Message::Background),
             Message::Bar(x) => self.bar.update(x).map(Message::Bar),
+            Message::Calculator(x) => self.calculator.update(x).map(Message::Calculator),
         }
     }
 
     pub fn view(&self, surface_id: Id) -> Element<'_, Message> {
         self.background
-            .view(surface_id)
+            .view(&self.cli, surface_id)
             .map(|x| x.map(Message::Background))
             .or_else(|| self.bar.view(surface_id).map(|x| x.map(Message::Bar)))
+            .or_else(|| {
+                self.calculator
+                    .view(&self.cli, surface_id)
+                    .map(|x| x.map(Message::Calculator))
+            })
             .unwrap_or_else(|| space().into())
     }
 
@@ -69,6 +71,7 @@ impl Shell {
             time::every(seconds(10)).map(|_| Message::TimeTick(Local::now())),
             self.background.subscription().map(Message::Background),
             self.bar.subscription().map(Message::Bar),
+            self.calculator.subscription().map(Message::Calculator),
         ])
     }
 }
