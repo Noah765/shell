@@ -4,6 +4,7 @@ use chrono::{DateTime, Local};
 use iced::{
     Element, Subscription, Task,
     time::{self, seconds},
+    widget::space,
     window::Id,
 };
 
@@ -60,7 +61,7 @@ impl Shell {
             .view(surface_id)
             .map(|x| x.map(Message::Background))
             .or_else(|| self.bar.view(surface_id).map(|x| x.map(Message::Bar)))
-            .unwrap()
+            .unwrap_or_else(|| space().into())
     }
 
     pub fn subscription(&self) -> Subscription<Message> {
