@@ -1,4 +1,4 @@
-use std::{cell::RefCell, thread};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, thread};
 
 use iced::{
     Element, Subscription,
@@ -7,8 +7,8 @@ use iced::{
 };
 use pipewire::{
     context::ContextRc,
-    keys,
     main_loop::MainLoopRc,
+    metadata::{Metadata, MetadataListener},
     node::{Node, NodeListener},
     registry::{GlobalObject, RegistryRc},
     spa::{
@@ -59,63 +59,132 @@ impl Audio {
     pub fn subscription(&self) -> Subscription<AudioMessage> {
         Subscription::run(|| {
             let (sender, receiver) = mpsc::channel(64);
-            thread::spawn(|| Self::audio_thread(sender));
+            thread::spawn(|| AudioThread::run(sender));
             ReceiverStream::new(receiver)
         })
     }
+}
 
-    fn audio_thread(sender: Sender<AudioMessage>) {
+struct AudioThread {
+    sender: Sender<AudioMessage>,
+    registry: RegistryRc,
+    default: Option<(Metadata, MetadataListener)>,
+    sinks: Vec<Sink>,
+    default_sink_name: Option<String>,
+    default_sink_listener: Option<NodeListener>,
+}
+
+struct Sink {
+    id: u32,
+    name: String,
+    node: Node,
+}
+
+impl AudioThread {
+    fn run(sender: Sender<AudioMessage>) {
         let main_loop = MainLoopRc::new(None).unwrap();
         let context = ContextRc::new(&main_loop, None).unwrap();
         let core = context.connect_rc(None).unwrap();
         let registry = core.get_registry_rc().unwrap();
 
-        let sink = RefCell::new(None);
-        let sink_listener = RefCell::new(None);
+        let this = Rc::new(RefCell::new(Self {
+            sender,
+            registry: RegistryRc::clone(&registry),
+            default: None,
+            sinks: Vec::new(),
+            default_sink_name: None,
+            default_sink_listener: None,
+        }));
+        let this_clone = Rc::clone(&this);
 
-        let registry_clone = RegistryRc::clone(&registry);
         let _registry_listener = registry
             .add_listener_local()
-            .global(move |x| {
-                Self::handle_global_object(
-                    x,
-                    sender.clone(),
-                    RegistryRc::clone(&registry_clone),
-                    &mut sink.borrow_mut(),
-                    &mut sink_listener.borrow_mut(),
-                )
-            })
+            .global(move |x| Self::handle_add_global_object(Rc::clone(&this), x))
+            .global_remove(move |x| this_clone.borrow_mut().handle_remove_global_object(x))
             .register();
 
         main_loop.run();
     }
 
-    fn handle_global_object(
-        object: &GlobalObject<&DictRef>,
-        sender: Sender<AudioMessage>,
-        registry: RegistryRc,
-        sink: &mut Option<Node>,
-        sink_listener: &mut Option<NodeListener>,
-    ) {
-        if object.type_ != ObjectType::Node
-            || object.props.unwrap().get(*keys::MEDIA_CLASS) != Some("Audio/Sink")
-            || sink.is_some()
+    fn handle_add_global_object(this: Rc<RefCell<Self>>, object: &GlobalObject<&DictRef>) {
+        if object.type_ == ObjectType::Metadata
+            && object.props.unwrap().get("metadata.name") == Some("default")
         {
-            return;
+            Self::handle_default(this, object);
+        } else if object.type_ == ObjectType::Node
+            && object.props.unwrap().get("media.class") == Some("Audio/Sink")
+        {
+            this.borrow_mut().handle_sink(object);
+        }
+    }
+
+    fn handle_default(this: Rc<RefCell<Self>>, object: &GlobalObject<&DictRef>) {
+        let metadata: Metadata = this.borrow().registry.bind(object).unwrap();
+
+        let this_clone = Rc::clone(&this);
+        let listener = metadata
+            .add_listener_local()
+            .property(move |_, key, _, value| {
+                this_clone.borrow_mut().handle_default_property(key, value)
+            })
+            .register();
+
+        this.borrow_mut().default = Some((metadata, listener))
+    }
+
+    fn handle_default_property(&mut self, key: Option<&str>, value: Option<&str>) -> i32 {
+        if key != Some("default.audio.sink") {
+            return 0;
         }
 
-        let node: Node = registry.bind(object).unwrap();
+        let name = serde_json::from_str::<HashMap<&str, _>>(value.unwrap())
+            .unwrap()
+            .remove("name")
+            .unwrap();
+
+        if let Some(i) = self.sinks.iter().position(|x| x.name == name) {
+            self.listen_to_default_sink_at(i);
+        } else {
+            self.default_sink_listener = None;
+        }
+
+        self.default_sink_name = Some(name);
+        0
+    }
+
+    fn handle_sink(&mut self, object: &GlobalObject<&DictRef>) {
+        self.sinks.push(Sink {
+            id: object.id,
+            name: object.props.unwrap().get("node.name").unwrap().to_string(),
+            node: self.registry.bind(object).unwrap(),
+        });
+        let i = self.sinks.len() - 1;
+
+        if self
+            .default_sink_name
+            .as_ref()
+            .is_some_and(|x| *x == self.sinks[i].name)
+        {
+            self.listen_to_default_sink_at(i);
+        }
+    }
+
+    fn listen_to_default_sink_at(&mut self, index: usize) {
+        let node = &self.sinks[index].node;
+
+        let sender = self.sender.clone();
         let listener = node
             .add_listener_local()
-            .param(move |_, _, _, _, pod| Self::handle_props(pod.unwrap(), sender.clone()))
+            .param(move |_, _, _, _, pod| {
+                Self::handle_default_sink_props(pod.unwrap(), sender.clone())
+            })
             .register();
         node.subscribe_params(&[ParamType::Props]);
 
-        *sink = Some(node);
-        *sink_listener = Some(listener);
+        self.default_sink_listener = Some(listener);
     }
 
-    fn handle_props(props: &Pod, sender: Sender<AudioMessage>) {
+    fn handle_default_sink_props(props: &Pod, sender: Sender<AudioMessage>) {
         let object = match PodDeserializer::deserialize_any_from(props.as_bytes()) {
             Ok((_, Value::Object(x))) => x,
             _ => panic!(),
@@ -140,5 +209,18 @@ impl Audio {
         };
 
         sender.blocking_send(AudioMessage(volume)).unwrap();
+    }
+
+    fn handle_remove_global_object(&mut self, id: u32) {
+        let Some(i) = self.sinks.iter().position(|x| x.id == id) else {
+            return;
+        };
+
+        let sink = self.sinks.swap_remove(i);
+
+        if Some(sink.name) == self.default_sink_name {
+            self.default_sink_name = None;
+            self.default_sink_listener = None;
+        }
     }
 }

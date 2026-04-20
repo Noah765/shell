@@ -3950,6 +3950,7 @@ dependencies = [
  "iced",
  "iced_lucide",
  "pipewire",
+ "serde_json",
  "smithay-client-toolkit",
  "tokio",
  "tokio-stream",
