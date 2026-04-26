@@ -256,7 +256,7 @@ impl Calculator {
 
                 let result =
                     result.to_markup(statements.last(), context.dimension_registry(), true, true);
-                output += &ANSIFormatter.format(&result, false);
+                output += ANSIFormatter.format(&result, false).trim_end();
 
                 Ok(output)
             }
@@ -318,7 +318,9 @@ impl Calculator {
             term::emit(&mut buffer, &config, &context.resolver().files, &x).unwrap();
         }
 
-        String::from_utf8(buffer.into_inner()).unwrap()
+        let mut result = String::from_utf8(buffer.into_inner()).unwrap();
+        result.truncate(result.trim_end().len());
+        result
     }
 
     pub fn view(
