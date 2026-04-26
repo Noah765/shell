@@ -133,7 +133,7 @@ impl AudioThread {
     }
 
     fn handle_default_property(&mut self, key: Option<&str>, value: Option<&str>) -> i32 {
-        if key != Some("default.audio.sink") {
+        if key != Some("default.audio.sink") || value.is_none() {
             return 0;
         }
 
