@@ -21,7 +21,7 @@ use iced::{
     task::Handle,
     time::milliseconds,
     widget::{
-        Container, Scrollable, column, container, operation, rich_text, rule,
+        Container, Scrollable, column, container, operation, rich_text, row, rule,
         scrollable::{self, Rail, Scroller, Status},
         sensor, space, span, text, text_input,
     },
@@ -37,7 +37,7 @@ use numbat::{
     resolver::CodeSource,
     value,
 };
-use smithay_client_toolkit::shell::wlr_layer::{KeyboardInteractivity, Layer};
+use smithay_client_toolkit::shell::wlr_layer::{Anchor, KeyboardInteractivity, Layer};
 use tokio::{task, time::sleep};
 use zbus::{
     Connection, proxy,
@@ -144,8 +144,9 @@ impl Calculator {
             id: surface_id,
             layer: Layer::Overlay,
             keyboard_interactivity: KeyboardInteractivity::Exclusive,
+            anchor: Anchor::all(),
             namespace: String::from("shell-calculator"),
-            size: Some((Some(1200), Some(850))),
+            exclusive_zone: -1,
             ..Default::default()
         })
     }
@@ -332,12 +333,22 @@ impl Calculator {
             return None;
         }
 
-        let view = column![
-            self.view_text_input(),
-            space().height(8),
-            self.view_preview(cli),
-            space().height(8),
-            self.view_results(cli),
+        let view = row![
+            space().width(Length::Fill),
+            column![
+                space().height(Length::Fill),
+                column![
+                    self.view_text_input(),
+                    space().height(8),
+                    self.view_preview(cli),
+                    space().height(8),
+                    self.view_results(cli),
+                ]
+                .height(Length::FillPortion(5)),
+                space().height(Length::Fill),
+            ]
+            .width(Length::FillPortion(2)),
+            space().width(Length::Fill),
         ];
         Some(view.into())
     }
