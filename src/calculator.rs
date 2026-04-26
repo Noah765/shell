@@ -58,13 +58,13 @@ pub struct Calculator {
 
 #[derive(Debug)]
 enum PreviewCalculation {
-    Pending(Handle),
+    Pending { handle: Handle, visible: bool },
     Ready(String),
 }
 
 #[derive(Debug)]
 enum ResultCalculation {
-    Pending,
+    Pending { visible: bool },
     Success(String),
     Error(String),
 }
@@ -75,9 +75,17 @@ pub enum CalculatorMessage {
     TextInputShown,
     TextInputContentChanged(String),
     TextInputIdle,
+    ShowPreviewCalculation,
     PreviewCalculationFinished(String),
     Submit,
-    ResultCalculationFinished(usize, bool, String),
+    ShowResultCalculation {
+        index: usize,
+    },
+    ResultCalculationFinished {
+        index: usize,
+        success: bool,
+        text: String,
+    },
 }
 
 impl Calculator {
@@ -105,35 +113,54 @@ impl Calculator {
     pub fn update(&mut self, message: CalculatorMessage) -> Task<CalculatorMessage> {
         match message {
             CalculatorMessage::Toggle => match self.surface_id {
-                None => self.show(),
-                Some(x) => self.hide(x),
+                None => return self.show(),
+                Some(x) => return self.hide(x),
             },
-            CalculatorMessage::TextInputShown => operation::focus(self.text_input_id.clone()),
+            CalculatorMessage::TextInputShown => {
+                return operation::focus(self.text_input_id.clone());
+            }
             CalculatorMessage::TextInputContentChanged(x) => {
                 self.text_input_content = x;
-                self.restart_idle_timer()
+                return self.restart_idle_timer();
             }
             CalculatorMessage::TextInputIdle => {
                 if let Some(x) = &self.text_input_idle_timer {
                     x.abort();
                     self.text_input_idle_timer = None;
                 }
-                self.display_preview()
+                return self.display_preview();
+            }
+            CalculatorMessage::ShowPreviewCalculation => {
+                if let PreviewCalculation::Pending { visible, .. } = &mut self.preview {
+                    *visible = true;
+                }
             }
             CalculatorMessage::PreviewCalculationFinished(x) => {
-                self.preview = PreviewCalculation::Ready(x);
-                Task::none()
-            }
-            CalculatorMessage::Submit => self.submit(),
-            CalculatorMessage::ResultCalculationFinished(i, success, text) => {
-                if success {
-                    self.results[i] = ResultCalculation::Success(text);
-                } else {
-                    self.results[i] = ResultCalculation::Error(text);
+                if let PreviewCalculation::Pending { handle, .. } = &self.preview {
+                    handle.abort()
                 }
-                Task::none()
+                self.preview = PreviewCalculation::Ready(x)
+            }
+            CalculatorMessage::Submit => return self.submit(),
+            CalculatorMessage::ShowResultCalculation { index } => {
+                if let ResultCalculation::Pending { visible } = &mut self.results[index] {
+                    *visible = true;
+                }
+            }
+            CalculatorMessage::ResultCalculationFinished {
+                index,
+                success,
+                text,
+            } => {
+                if success {
+                    self.results[index] = ResultCalculation::Success(text);
+                } else {
+                    self.results[index] = ResultCalculation::Error(text);
+                }
             }
         }
+
+        Task::none()
     }
 
     fn show(&mut self) -> Task<CalculatorMessage> {
@@ -158,6 +185,9 @@ impl Calculator {
             x.abort();
             self.text_input_idle_timer = None;
         }
+        if let PreviewCalculation::Pending { handle, .. } = &self.preview {
+            handle.abort();
+        }
         self.preview = PreviewCalculation::Ready(String::new());
         layer_surface::destroy_layer_surface(surface_id)
     }
@@ -176,12 +206,12 @@ impl Calculator {
     }
 
     fn display_preview(&mut self) -> Task<CalculatorMessage> {
-        if let Some(ResultCalculation::Pending) = self.results.last() {
+        if let Some(ResultCalculation::Pending { .. }) = self.results.last() {
             return Task::none();
         }
 
-        if let PreviewCalculation::Pending(x) = &self.preview {
-            x.abort();
+        if let PreviewCalculation::Pending { handle, .. } = &self.preview {
+            handle.abort();
         }
 
         if self.text_input_content.trim_start().is_empty() {
@@ -191,12 +221,21 @@ impl Calculator {
 
         let mut context = self.context.blocking_lock().clone();
         let input = self.text_input_content.clone();
-        let (task, handle) = Task::perform(
-            task::spawn_blocking(move || Self::calculate(&mut context, &input)),
-            |x| CalculatorMessage::PreviewCalculationFinished(x.unwrap().unwrap_or_else(|x| x)),
-        )
+
+        let (task, handle) = Task::batch([
+            Task::future(sleep(milliseconds(25)))
+                .map(|_| CalculatorMessage::ShowPreviewCalculation),
+            Task::perform(
+                task::spawn_blocking(move || Self::calculate(&mut context, &input)),
+                |x| CalculatorMessage::PreviewCalculationFinished(x.unwrap().unwrap_or_else(|x| x)),
+            ),
+        ])
         .abortable();
-        self.preview = PreviewCalculation::Pending(handle);
+
+        self.preview = PreviewCalculation::Pending {
+            handle,
+            visible: false,
+        };
 
         task
     }
@@ -205,8 +244,8 @@ impl Calculator {
         let context = Arc::clone(&self.context);
         let input = mem::take(&mut self.text_input_content);
 
-        if let PreviewCalculation::Pending(x) = &self.preview {
-            x.abort();
+        if let PreviewCalculation::Pending { handle, .. } = &self.preview {
+            handle.abort();
         }
         self.preview = PreviewCalculation::Ready(String::new());
 
@@ -214,20 +253,25 @@ impl Calculator {
             return Task::none();
         }
 
-        let i = self.results.len();
-        self.results.push(ResultCalculation::Pending);
+        let index = self.results.len();
+        self.results
+            .push(ResultCalculation::Pending { visible: false });
 
-        Task::future(async move {
-            let mut context = context.lock_owned().await;
-            let result = task::spawn_blocking(move || Self::calculate(&mut context, &input))
-                .await
-                .unwrap();
-            CalculatorMessage::ResultCalculationFinished(
-                i,
-                result.is_ok(),
-                result.unwrap_or_else(|x| x),
-            )
-        })
+        Task::batch([
+            Task::future(sleep(milliseconds(25)))
+                .map(move |_| CalculatorMessage::ShowResultCalculation { index }),
+            Task::future(async move {
+                let mut context = context.lock_owned().await;
+                let result = task::spawn_blocking(move || Self::calculate(&mut context, &input))
+                    .await
+                    .unwrap();
+                CalculatorMessage::ResultCalculationFinished {
+                    index,
+                    success: result.is_ok(),
+                    text: result.unwrap_or_else(|x| x),
+                }
+            }),
+        ])
     }
 
     fn calculate(context: &mut Context, line: &str) -> Result<String, String> {
@@ -381,7 +425,8 @@ impl Calculator {
         self.view_window(
             false,
             self.view_scrollable(match &self.preview {
-                PreviewCalculation::Pending(_) => text("Calculating...").into(),
+                PreviewCalculation::Pending { visible: false, .. } => space().into(),
+                PreviewCalculation::Pending { visible: true, .. } => text("Calculating...").into(),
                 PreviewCalculation::Ready(x) => self.view_ansi_text(cli, x),
             }),
         )
@@ -391,8 +436,12 @@ impl Calculator {
     }
 
     fn view_results(&self, cli: &Cli) -> Element<'_, CalculatorMessage> {
+        fn filter_calculation(calculation: &ResultCalculation) -> bool {
+            !matches!(calculation, ResultCalculation::Pending { visible: false })
+        }
+
         let view_calculation = |i| match &self.results[i] {
-            ResultCalculation::Pending => text("Calculating...").into(),
+            ResultCalculation::Pending { .. } => text("Calculating...").into(),
             ResultCalculation::Success(x) => self.view_ansi_text(cli, x),
             ResultCalculation::Error(x) if i == self.results.len() - 1 => {
                 self.view_ansi_text(cli, x)
@@ -405,6 +454,7 @@ impl Calculator {
             self.view_scrollable(column(
                 (1..self.results.len())
                     .rev()
+                    .filter(|&i| filter_calculation(&self.results[i]))
                     .flat_map(|i| {
                         [
                             view_calculation(i),
@@ -413,7 +463,12 @@ impl Calculator {
                             space().height(8).into(),
                         ]
                     })
-                    .chain(self.results.first().map(|_| view_calculation(0))),
+                    .chain(
+                        self.results
+                            .first()
+                            .filter(|x| filter_calculation(x))
+                            .map(|_| view_calculation(0)),
+                    ),
             )),
         )
         .height(Length::FillPortion(3))
