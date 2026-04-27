@@ -1,7 +1,6 @@
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    crane.url = "github:ipetkov/crane";
     treefmt.url = "github:numtide/treefmt-nix";
     treefmt.inputs.nixpkgs.follows = "nixpkgs";
   };
@@ -18,9 +17,13 @@
     packages = eachSystem (pkgs: rec {
       default = shell;
 
-      shell = (inputs.crane.mkLib pkgs).buildPackage {
+      shell = pkgs.rustPlatform.buildRustPackage {
+        pname = "shell";
+        version = "0.1.0";
+
         src = ./.;
-        strictDeps = true;
+        cargoLock.lockFile = ./Cargo.lock;
+        cargoLock.allowBuiltinFetchGit = true;
 
         nativeBuildInputs = with pkgs; [autoPatchelfHook clang pkg-config];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libclang];
