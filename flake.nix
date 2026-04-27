@@ -27,9 +27,8 @@
 
         nativeBuildInputs = with pkgs; [autoPatchelfHook clang pkg-config];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libclang];
-        autoPatchelfIgnoreMissingDeps = ["libgcc_s.so.1"];
 
-        buildInputs = with pkgs; [libx11 libxcb libxkbcommon pipewire];
+        buildInputs = with pkgs; [libgcc libx11 libxcb libxkbcommon pipewire];
         runtimeDependencies = [pkgs.vulkan-loader pkgs.wayland];
 
         meta.mainProgram = "shell";
@@ -50,8 +49,8 @@
         cargoHash = "sha256-c3at2XyG2c+mJD43YMlfolT1WZaDcBzfxXoS0CX8lag=";
 
         nativeBuildInputs = [pkgs.autoPatchelfHook];
-        autoPatchelfIgnoreMissingDeps = ["libgcc_s.so.1"];
 
+        buildInputs = [pkgs.libgcc];
         runtimeDependencies = with pkgs; [libxkbcommon vulkan-loader wayland];
       });
     in {
