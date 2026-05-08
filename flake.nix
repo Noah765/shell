@@ -22,8 +22,19 @@
         version = "0.1.0";
 
         src = ./.;
+
         cargoLock.lockFile = ./Cargo.lock;
-        cargoLock.allowBuiltinFetchGit = true;
+        cargoLock.outputHashes = {
+          "accesskit-0.22.0" = "sha256-pP9CyiV1zIONQ7vbl5MkMtilemSPrHaZ0c/SyR+lb0k=";
+          "clipboard_macos-0.1.0" = "sha256-WO3JFbE+6ESRAfkxrnEFeZyGuhUHLOKOVHcGQyHwoK0=";
+          "cosmic-client-toolkit-0.2.0" = "sha256-ymn+BUTTzyHquPn4hvuoA3y1owFj8LVrmsPu2cdkFQ8=";
+          "cosmic-text-0.19.0" = "sha256-sQJN7WtWAesesUEprd+oDQ19XtaWwWvbY5qrNJXLks0=";
+          "cryoglyph-0.1.0" = "sha256-sSfgXlWgrM4wdczdquqzc/uuUmHL/GuK+Xvn0XNO+UQ=";
+          "dpi-0.1.2" = "sha256-pvGeHgfGetFutV2Pr39Jse+REFOmCkI1djzHqMQcWmE=";
+          "iced-0.14.0" = "sha256-LMZkt3iZec0w2OHtLEjHk3jMV57Et/BbRhIFC4RA+O0=";
+          "smithay-clipboard-0.8.0" = "sha256-GojAFRbhJcP0Rpr+v9WOivgW9x38PZdeBWTbMhkDB3A=";
+          "softbuffer-0.4.1" = "sha256-9Ret/nfieBFl4yJ9TddyWsSuS7sI4QAza/TZrxYMb+I=";
+        };
 
         nativeBuildInputs = with pkgs; [autoPatchelfHook clang pkg-config];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libclang];
