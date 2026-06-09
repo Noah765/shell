@@ -490,7 +490,7 @@ impl Calculator {
                     theme.extended_palette().background.strong.color
                 },
                 width: 1.0,
-                radius: Radius::new(12),
+                radius: Radius::new(8),
             },
             ..Default::default()
         })

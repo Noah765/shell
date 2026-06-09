@@ -155,7 +155,7 @@ impl Bar {
                 border: Border {
                     color: theme.extended_palette().background.strong.color,
                     width: 1.0,
-                    radius: Radius::new(12.0 / BAR_WIDTH * width),
+                    radius: Radius::new(8.0 / BAR_WIDTH * width),
                 },
                 ..Default::default()
             })
