@@ -34,8 +34,8 @@ impl Shell {
         let now = Local::now();
 
         Self {
+            background: Background::new(&cli.wallpapers, now),
             cli,
-            background: Background::new(now),
             bar: Bar::new(now),
             calculator: Calculator::new(),
         }
@@ -55,7 +55,7 @@ impl Shell {
 
     pub fn view(&self, surface_id: Id) -> Element<'_, Message> {
         self.background
-            .view(&self.cli, surface_id)
+            .view(surface_id)
             .map(|x| x.map(Message::Background))
             .or_else(|| self.bar.view(surface_id).map(|x| x.map(Message::Bar)))
             .or_else(|| {

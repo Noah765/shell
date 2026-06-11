@@ -25,17 +25,9 @@ const STYLES: Styles = Styles::styled()
 #[derive(Clone, Debug, Parser)]
 #[command(version, styles = STYLES)]
 pub struct Cli {
-    /// The wallpaper background image
+    /// The wallpaper directory or image
     #[arg(long, value_name = "PATH")]
-    pub wallpaper_background: PathBuf,
-
-    /// The wallpaper middle ground image
-    #[arg(long, value_name = "PATH")]
-    pub wallpaper_middle_ground: PathBuf,
-
-    /// The wallpaper foreground image
-    #[arg(long, value_name = "PATH")]
-    pub wallpaper_foreground: PathBuf,
+    pub wallpapers: PathBuf,
 
     /// The background color
     #[arg(long, value_name = "COLOR")]
