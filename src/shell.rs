@@ -16,7 +16,7 @@ use crate::{
 #[derive(Debug)]
 pub struct Shell {
     cli: Cli,
-    background: Background,
+    background: Option<Background>,
     bar: Bar,
     calculator: Calculator,
 }
@@ -34,7 +34,7 @@ impl Shell {
         let now = Local::now();
 
         Self {
-            background: Background::new(&cli.wallpapers, now),
+            background: cli.wallpapers.as_ref().map(|x| Background::new(x, now)),
             cli,
             bar: Bar::new(now),
             calculator: Calculator::new(),
@@ -47,7 +47,10 @@ impl Shell {
                 Task::done(Message::Background(BackgroundMessage::TimeTick(x))),
                 Task::done(Message::Bar(BarMessage::TimeTick(x))),
             ]),
-            Message::Background(x) => self.background.update(x).map(Message::Background),
+            Message::Background(x) => match &mut self.background {
+                None => Task::none(),
+                Some(background) => background.update(x).map(Message::Background),
+            },
             Message::Bar(x) => self.bar.update(x).map(Message::Bar),
             Message::Calculator(x) => self.calculator.update(x).map(Message::Calculator),
         }
@@ -55,8 +58,8 @@ impl Shell {
 
     pub fn view(&self, surface_id: Id) -> Element<'_, Message> {
         self.background
-            .view(surface_id)
-            .map(|x| x.map(Message::Background))
+            .as_ref()
+            .and_then(|x| x.view(surface_id).map(|x| x.map(Message::Background)))
             .or_else(|| self.bar.view(surface_id).map(|x| x.map(Message::Bar)))
             .or_else(|| {
                 self.calculator
@@ -69,7 +72,10 @@ impl Shell {
     pub fn subscription(&self) -> Subscription<Message> {
         Subscription::batch([
             time::every(seconds(10)).map(|_| Message::TimeTick(Local::now())),
-            self.background.subscription().map(Message::Background),
+            match &self.background {
+                None => Subscription::none(),
+                Some(x) => x.subscription().map(Message::Background),
+            },
             self.bar.subscription().map(Message::Bar),
             self.calculator.subscription().map(Message::Calculator),
         ])

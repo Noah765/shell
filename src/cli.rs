@@ -27,45 +27,45 @@ const STYLES: Styles = Styles::styled()
 pub struct Cli {
     /// The wallpaper directory or image
     #[arg(long, value_name = "PATH")]
-    pub wallpapers: PathBuf,
+    pub wallpapers: Option<PathBuf>,
 
     /// The background color
-    #[arg(long, value_name = "COLOR")]
+    #[arg(long, value_name = "COLOR", default_value = "#2d353b")]
     pub background_color: iced::Color,
 
     /// The text color
-    #[arg(long, value_name = "COLOR")]
+    #[arg(long, value_name = "COLOR", default_value = "#d3c6aa")]
     pub text_color: iced::Color,
 
     /// The primary color
-    #[arg(long, value_name = "COLOR")]
+    #[arg(long, value_name = "COLOR", default_value = "#a7c080")]
     pub primary_color: iced::Color,
 
     /// The red color
-    #[arg(long, value_name = "COLOR")]
+    #[arg(long, value_name = "COLOR", default_value = "#e67e80")]
     pub red: iced::Color,
 
     /// The green color
-    #[arg(long, value_name = "COLOR")]
+    #[arg(long, value_name = "COLOR", default_value = "#a7c080")]
     pub green: iced::Color,
 
     /// The yellow color
-    #[arg(long, value_name = "COLOR")]
+    #[arg(long, value_name = "COLOR", default_value = "#dbbc7f")]
     pub yellow: iced::Color,
 
     /// The blue color
-    #[arg(long, value_name = "COLOR")]
+    #[arg(long, value_name = "COLOR", default_value = "#7fbbb3")]
     pub blue: iced::Color,
 
     /// The magenta color
-    #[arg(long, value_name = "COLOR")]
+    #[arg(long, value_name = "COLOR", default_value = "#d699b6")]
     pub magenta: iced::Color,
 
     /// The cyan color
-    #[arg(long, value_name = "COLOR")]
+    #[arg(long, value_name = "COLOR", default_value = "#83c092")]
     pub cyan: iced::Color,
 
     /// The bar opacity
-    #[arg(long, value_name = "OPACITY")]
+    #[arg(long, value_name = "OPACITY", default_value_t = 0.75)]
     pub bar_opacity: f32,
 }
