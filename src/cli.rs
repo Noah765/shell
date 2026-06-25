@@ -23,8 +23,9 @@ const STYLES: Styles = Styles::styled()
 
 /// A minimal desktop shell.
 ///
-/// Default arguments are read from an optional config file located at
-/// $SHELL_CONFIG_PATH or ~/.config/shell/config.
+/// Default options are read from $SHELL_DEFAULT_OPTS, as well as from
+/// an optional configuration file located at $SHELL_CONFIG_PATH or
+/// ~/.config/shell/config.
 #[derive(Clone, Debug, Parser)]
 #[command(version, args_override_self = true, styles = STYLES)]
 pub struct Cli {
@@ -78,12 +79,21 @@ impl Cli {
         let mut args = env::args();
         let executable = args.next().unwrap();
 
+        let default_opts = env::var("SHELL_DEFAULT_OPTS").unwrap_or_default();
         let config = Self::read_config();
         let args = iter::once(executable)
+            .chain(Self::parse_default_opts(&default_opts))
             .chain(Self::parse_config(&config))
             .chain(args);
 
         Self::parse_from(args)
+    }
+
+    fn parse_default_opts(default_opts: &str) -> impl Iterator<Item = String> {
+        default_opts
+            .split(char::is_whitespace)
+            .filter(|x| !x.is_empty())
+            .map(String::from)
     }
 
     fn read_config() -> String {
