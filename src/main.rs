@@ -1,7 +1,7 @@
 use iced::{
-    Color, Font, Theme,
+    Color, Font,
     font::{Family, Weight},
-    theme::{Palette, Style},
+    theme::Style,
 };
 
 use crate::{cli::Cli, shell::Shell};
@@ -18,15 +18,6 @@ fn main() -> iced::Result {
     let mut cli = Cli::build();
     cli.background_color.a = cli.bar_opacity;
 
-    let palette = Palette {
-        background: cli.background_color,
-        text: cli.text_color,
-        primary: cli.primary_color,
-        success: cli.green,
-        warning: cli.yellow,
-        danger: cli.red,
-    };
-
     iced::daemon(move || Shell::new(cli.clone()), Shell::update, Shell::view)
         .title("shell")
         .subscription(Shell::subscription)
@@ -41,6 +32,6 @@ fn main() -> iced::Result {
             text_color: theme.palette().text,
             icon_color: theme.palette().text,
         })
-        .theme(Theme::custom("Custom", palette))
+        .theme(Shell::theme)
         .run()
 }

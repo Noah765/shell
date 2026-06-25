@@ -1,10 +1,13 @@
 use chrono::{DateTime, Local};
 use iced::{
-    Element, Subscription, Task,
+    Element, Subscription, Task, Theme,
+    theme::Palette,
     time::{self, seconds},
     widget::space,
     window::Id,
 };
+use signal_hook::consts::SIGUSR1;
+use signal_hook_tokio::Signals;
 
 use crate::{
     background::{Background, BackgroundMessage},
@@ -23,6 +26,7 @@ pub struct Shell {
 
 #[derive(Clone, Debug)]
 pub enum Message {
+    ReloadConfig,
     TimeTick(DateTime<Local>),
     Background(BackgroundMessage),
     Bar(BarMessage),
@@ -41,8 +45,21 @@ impl Shell {
         }
     }
 
+    pub fn theme(&self, _: Id) -> Theme {
+        let palette = Palette {
+            background: self.cli.background_color,
+            text: self.cli.text_color,
+            primary: self.cli.primary_color,
+            success: self.cli.green,
+            warning: self.cli.yellow,
+            danger: self.cli.red,
+        };
+        Theme::custom("Custom", palette)
+    }
+
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
+            Message::ReloadConfig => self.reload_config(),
             Message::TimeTick(x) => Task::batch([
                 Task::done(Message::Background(BackgroundMessage::TimeTick(x))),
                 Task::done(Message::Bar(BarMessage::TimeTick(x))),
@@ -53,6 +70,26 @@ impl Shell {
             },
             Message::Bar(x) => self.bar.update(x).map(Message::Bar),
             Message::Calculator(x) => self.calculator.update(x).map(Message::Calculator),
+        }
+    }
+
+    fn reload_config(&mut self) -> Task<Message> {
+        self.cli = Cli::build();
+
+        match (self.cli.wallpapers.clone(), &self.background) {
+            (None, None) => Task::none(),
+            (None, Some(x)) => {
+                let task = x.destroy().map(Message::Background);
+                self.background = None;
+                task
+            }
+            (Some(x), None) => {
+                self.background = Some(Background::new(&x, Local::now()));
+                Task::none()
+            }
+            (Some(x), Some(_)) => {
+                Task::done(Message::Background(BackgroundMessage::UpdateWallpaper(x)))
+            }
         }
     }
 
@@ -71,6 +108,7 @@ impl Shell {
 
     pub fn subscription(&self) -> Subscription<Message> {
         Subscription::batch([
+            Subscription::run(|| Signals::new([SIGUSR1]).unwrap()).map(|_| Message::ReloadConfig),
             time::every(seconds(10)).map(|_| Message::TimeTick(Local::now())),
             match &self.background {
                 None => Subscription::none(),

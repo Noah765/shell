@@ -35,6 +35,7 @@ struct Output {
 
 #[derive(Clone, Debug)]
 pub enum BackgroundMessage {
+    UpdateWallpaper(PathBuf),
     OutputCreated(WlOutput),
     OutputRemoved(u32),
     TimeTick(DateTime<Local>),
@@ -49,6 +50,20 @@ impl Background {
         }
     }
 
+    pub fn update(&mut self, message: BackgroundMessage) -> Task<BackgroundMessage> {
+        match message {
+            BackgroundMessage::UpdateWallpaper(x) if x == self.wallpaper.parent().unwrap() => {}
+            BackgroundMessage::UpdateWallpaper(x) => self.wallpaper = Self::choose_wallpaper(&x),
+            BackgroundMessage::OutputCreated(x) => return self.create_output(x),
+            BackgroundMessage::OutputRemoved(x) => return self.remove_output(x),
+            BackgroundMessage::TimeTick(x) => {
+                self.now = x;
+            }
+        }
+
+        Task::none()
+    }
+
     fn choose_wallpaper(wallpapers: &Path) -> PathBuf {
         let metadata = wallpapers
             .metadata()
@@ -61,17 +76,6 @@ impl Background {
 
         let wallpapers: Vec<_> = wallpapers.read_dir().unwrap().map(|x| x.unwrap()).collect();
         wallpapers[rand::rng().random_range(0..wallpapers.len())].path()
-    }
-
-    pub fn update(&mut self, message: BackgroundMessage) -> Task<BackgroundMessage> {
-        match message {
-            BackgroundMessage::OutputCreated(x) => self.create_output(x),
-            BackgroundMessage::OutputRemoved(x) => self.remove_output(x),
-            BackgroundMessage::TimeTick(x) => {
-                self.now = x;
-                Task::none()
-            }
-        }
     }
 
     fn create_output(&mut self, output: WlOutput) -> Task<BackgroundMessage> {
@@ -98,6 +102,14 @@ impl Background {
         let output = self.outputs.swap_remove(i);
 
         layer_surface::destroy_layer_surface(output.surface_id)
+    }
+
+    pub fn destroy(&self) -> Task<BackgroundMessage> {
+        Task::batch(
+            self.outputs
+                .iter()
+                .map(|x| layer_surface::destroy_layer_surface(x.surface_id)),
+        )
     }
 
     pub fn view(&self, surface_id: Id) -> Option<Element<'_, BackgroundMessage>> {
