@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{env, fs, io::ErrorKind, iter, path::PathBuf};
 
 use clap::{
     Parser,
@@ -21,9 +21,12 @@ const STYLES: Styles = Styles::styled()
     .invalid(Style::new().fg_color(RED).bold())
     .context(Style::new().fg_color(GREEN));
 
-/// A minimal desktop shell
+/// A minimal desktop shell.
+///
+/// Default arguments are read from an optional config file located at
+/// $SHELL_CONFIG_PATH or ~/.config/shell/config.
 #[derive(Clone, Debug, Parser)]
-#[command(version, styles = STYLES)]
+#[command(version, args_override_self = true, styles = STYLES)]
 pub struct Cli {
     /// Wallpaper directory or image
     #[arg(long, value_name = "PATH")]
@@ -68,4 +71,56 @@ pub struct Cli {
     /// Bar opacity
     #[arg(long, value_name = "OPACITY", default_value_t = 0.75)]
     pub bar_opacity: f32,
+}
+
+impl Cli {
+    pub fn build() -> Self {
+        let mut args = env::args();
+        let executable = args.next().unwrap();
+
+        let config = Self::read_config();
+        let args = iter::once(executable)
+            .chain(Self::parse_config(&config))
+            .chain(args);
+
+        Self::parse_from(args)
+    }
+
+    fn read_config() -> String {
+        let Some(path) = Self::get_config_path() else {
+            return String::new();
+        };
+
+        match fs::read_to_string(path) {
+            Ok(x) => x,
+            Err(x) if x.kind() == ErrorKind::NotFound => String::new(),
+            Err(x) => {
+                eprintln!("{x}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    fn get_config_path() -> Option<PathBuf> {
+        fn read_env(name: &str) -> Option<PathBuf> {
+            let var = env::var(name).ok()?;
+            if var.starts_with('~') {
+                env::home_dir().map(|x| x.join(&var[2..]))
+            } else {
+                Some(PathBuf::from(var))
+            }
+        }
+
+        read_env("SHELL_CONFIG_PATH")
+            .or_else(|| read_env("XDG_CONFIG_HOME").map(|x| x.join("shell/config")))
+            .or_else(|| env::home_dir().map(|x| x.join(".config/shell/config")))
+    }
+
+    fn parse_config(config: &str) -> impl Iterator<Item = String> {
+        config
+            .lines()
+            .map(str::trim)
+            .filter(|x| !x.starts_with('#'))
+            .map(String::from)
+    }
 }

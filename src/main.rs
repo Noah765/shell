@@ -1,4 +1,3 @@
-use clap::Parser;
 use iced::{
     Color, Font, Theme,
     font::{Family, Weight},
@@ -16,7 +15,7 @@ mod icon;
 mod shell;
 
 fn main() -> iced::Result {
-    let mut cli = Cli::parse();
+    let mut cli = Cli::build();
     cli.background_color.a = cli.bar_opacity;
 
     let palette = Palette {
