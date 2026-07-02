@@ -1,3 +1,5 @@
+use std::mem;
+
 use chrono::{DateTime, Local};
 use iced::{
     Element, Subscription, Task, Theme,
@@ -6,7 +8,7 @@ use iced::{
     widget::space,
     window::Id,
 };
-use signal_hook::consts::SIGUSR1;
+use signal_hook::consts::{SIGUSR1, SIGUSR2};
 use signal_hook_tokio::Signals;
 
 use crate::{
@@ -27,6 +29,7 @@ pub struct Shell {
 #[derive(Clone, Debug)]
 pub enum Message {
     ReloadConfig,
+    ChangeWallpaper,
     TimeTick(DateTime<Local>),
     Background(BackgroundMessage),
     Bar(BarMessage),
@@ -60,6 +63,10 @@ impl Shell {
     pub fn update(&mut self, message: Message) -> Task<Message> {
         match message {
             Message::ReloadConfig => self.reload_config(),
+            Message::ChangeWallpaper => match self.cli.wallpapers.clone() {
+                None => Task::none(),
+                Some(x) => Task::done(Message::Background(BackgroundMessage::UpdateWallpaper(x))),
+            },
             Message::TimeTick(x) => Task::batch([
                 Task::done(Message::Background(BackgroundMessage::TimeTick(x))),
                 Task::done(Message::Bar(BarMessage::TimeTick(x))),
@@ -74,7 +81,7 @@ impl Shell {
     }
 
     fn reload_config(&mut self) -> Task<Message> {
-        self.cli = Cli::build();
+        let previous_cli = mem::replace(&mut self.cli, Cli::build());
 
         match (self.cli.wallpapers.clone(), &self.background) {
             (None, None) => Task::none(),
@@ -87,6 +94,7 @@ impl Shell {
                 self.background = Some(Background::new(&x, Local::now()));
                 Task::none()
             }
+            (Some(x), Some(_)) if previous_cli.wallpapers.unwrap() == x => Task::none(),
             (Some(x), Some(_)) => {
                 Task::done(Message::Background(BackgroundMessage::UpdateWallpaper(x)))
             }
@@ -108,7 +116,7 @@ impl Shell {
 
     pub fn subscription(&self) -> Subscription<Message> {
         Subscription::batch([
-            Subscription::run(|| Signals::new([SIGUSR1]).unwrap()).map(|_| Message::ReloadConfig),
+            self.signals_subscription(),
             time::every(seconds(10)).map(|_| Message::TimeTick(Local::now())),
             match &self.background {
                 None => Subscription::none(),
@@ -117,5 +125,13 @@ impl Shell {
             self.bar.subscription().map(Message::Bar),
             self.calculator.subscription().map(Message::Calculator),
         ])
+    }
+
+    fn signals_subscription(&self) -> Subscription<Message> {
+        Subscription::run(|| Signals::new([SIGUSR1, SIGUSR2]).unwrap()).map(|x| match x {
+            SIGUSR1 => Message::ReloadConfig,
+            SIGUSR2 => Message::ChangeWallpaper,
+            _ => panic!(),
+        })
     }
 }

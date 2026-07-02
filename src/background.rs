@@ -44,7 +44,7 @@ pub enum BackgroundMessage {
 impl Background {
     pub fn new(wallpapers: &Path, now: DateTime<Local>) -> Self {
         Self {
-            wallpaper: Self::choose_wallpaper(wallpapers),
+            wallpaper: Self::next_wallpaper(wallpapers, None),
             outputs: Vec::new(),
             now,
         }
@@ -52,8 +52,9 @@ impl Background {
 
     pub fn update(&mut self, message: BackgroundMessage) -> Task<BackgroundMessage> {
         match message {
-            BackgroundMessage::UpdateWallpaper(x) if x == self.wallpaper.parent().unwrap() => {}
-            BackgroundMessage::UpdateWallpaper(x) => self.wallpaper = Self::choose_wallpaper(&x),
+            BackgroundMessage::UpdateWallpaper(x) => {
+                self.wallpaper = Self::next_wallpaper(&x, Some(&self.wallpaper))
+            }
             BackgroundMessage::OutputCreated(x) => return self.create_output(x),
             BackgroundMessage::OutputRemoved(x) => return self.remove_output(x),
             BackgroundMessage::TimeTick(x) => {
@@ -64,7 +65,7 @@ impl Background {
         Task::none()
     }
 
-    fn choose_wallpaper(wallpapers: &Path) -> PathBuf {
+    fn next_wallpaper(wallpapers: &Path, previous: Option<&Path>) -> PathBuf {
         let metadata = wallpapers
             .metadata()
             .expect("wallpapers should be a valid path");
@@ -75,7 +76,19 @@ impl Background {
         }
 
         let wallpapers: Vec<_> = wallpapers.read_dir().unwrap().map(|x| x.unwrap()).collect();
-        wallpapers[rand::rng().random_range(0..wallpapers.len())].path()
+        let previous_index =
+            previous.and_then(|previous| wallpapers.iter().position(|x| x.path() == previous));
+
+        let i = if let Some(x) = previous_index
+            && wallpapers.len() >= 2
+        {
+            let i = rand::rng().random_range(0..(wallpapers.len() - 1));
+            if i < x { i } else { i + 1 }
+        } else {
+            rand::rng().random_range(0..wallpapers.len())
+        };
+
+        wallpapers[i].path()
     }
 
     fn create_output(&mut self, output: WlOutput) -> Task<BackgroundMessage> {
