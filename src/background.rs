@@ -2,8 +2,7 @@ use std::path::{Path, PathBuf};
 
 use chrono::{DateTime, Local};
 use iced::{
-    ContentFit, Element, Font, Size, Subscription, Task,
-    core::image::Handle,
+    ContentFit, Element, Font, Length, Size, Subscription, Task,
     event::{
         self, PlatformSpecific,
         wayland::{self, OutputEvent},
@@ -131,7 +130,10 @@ impl Background {
         }
 
         let view = stack![
-            image(Handle::from_path(&self.wallpaper)).content_fit(ContentFit::Cover),
+            image(&self.wallpaper)
+                .width(Length::Fill)
+                .height(Length::Fill)
+                .content_fit(ContentFit::Cover),
             self.view_clock(self.now),
         ];
         Some(view.into())
