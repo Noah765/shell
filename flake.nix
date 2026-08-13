@@ -27,17 +27,20 @@
         cargoLock.outputHashes = {
           "accesskit-0.22.0" = "sha256-pP9CyiV1zIONQ7vbl5MkMtilemSPrHaZ0c/SyR+lb0k=";
           "clipboard_macos-0.1.0" = "sha256-WO3JFbE+6ESRAfkxrnEFeZyGuhUHLOKOVHcGQyHwoK0=";
-          "cosmic-client-toolkit-0.2.0" = "sha256-ymn+BUTTzyHquPn4hvuoA3y1owFj8LVrmsPu2cdkFQ8=";
-          "cosmic-text-0.19.0" = "sha256-sQJN7WtWAesesUEprd+oDQ19XtaWwWvbY5qrNJXLks0=";
-          "cryoglyph-0.1.0" = "sha256-sSfgXlWgrM4wdczdquqzc/uuUmHL/GuK+Xvn0XNO+UQ=";
-          "dpi-0.1.2" = "sha256-pvGeHgfGetFutV2Pr39Jse+REFOmCkI1djzHqMQcWmE=";
-          "iced-0.14.0" = "sha256-LMZkt3iZec0w2OHtLEjHk3jMV57Et/BbRhIFC4RA+O0=";
+          "cosmic-client-toolkit-0.2.0" = "sha256-LUAmB+3+doRZOJbVURaIInaQuV/LXCKfoWHA28ihAMo=";
+          "cryoglyph-0.1.0" = "sha256-10JUHl1ktbqLaReuiU3HPa4r2KvsoryyJoF3BFoge3U=";
+          "dpi-0.1.2" = "sha256-8r9O5RgVa8vxkPPYvr2aQiRdZ4isg7Jdnk8O5gQIr9k=";
+          "iced-0.14.0" = "sha256-qqzsmAJVKD92812vfxnvsYuvNhPS3m8AImSYzSPc/pw=";
           "smithay-clipboard-0.8.0" = "sha256-GojAFRbhJcP0Rpr+v9WOivgW9x38PZdeBWTbMhkDB3A=";
           "softbuffer-0.4.1" = "sha256-9Ret/nfieBFl4yJ9TddyWsSuS7sI4QAza/TZrxYMb+I=";
         };
 
-        nativeBuildInputs = with pkgs; [autoPatchelfHook clang pkg-config];
+        nativeBuildInputs = with pkgs; [autoPatchelfHook clang copyDesktopItems pkg-config];
         LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [pkgs.libclang];
+        desktopItems = pkgs.lib.singleton (pkgs.makeDesktopItem {
+          name = "shell";
+          desktopName = "shell";
+        });
 
         buildInputs = with pkgs; [libgcc libx11 libxcb libxkbcommon pipewire];
         runtimeDependencies = [pkgs.vulkan-loader pkgs.wayland];
@@ -49,15 +52,15 @@
     devShells = eachSystem (pkgs: let
       comet = pkgs.rustPlatform.buildRustPackage (finalAttrs: {
         pname = "comet";
-        version = "fbef808eed51562f0ea601d8fc7c715bea9cfd0b";
+        version = "c4d45e3f502d9e18e0d9d4eda2c07093c62d8309";
 
         src = pkgs.fetchFromGitHub {
           owner = "iced-rs";
           repo = "comet";
           rev = finalAttrs.version;
-          hash = "sha256-aefw4FK40Nu7+hOJ0geOpYg/XXFEFmdCD3x2xrVEHVk=";
+          hash = "sha256-HAZjWGTIvGYSfZVD5rBV7gA++o/a91ndHKW5OjJvTd8=";
         };
-        cargoHash = "sha256-c3at2XyG2c+mJD43YMlfolT1WZaDcBzfxXoS0CX8lag=";
+        cargoHash = "sha256-0EqHoruoyUOXVFbdjKwyEy0NghNE3G7AFxwFlYlfkPg=";
 
         nativeBuildInputs = [pkgs.autoPatchelfHook];
 

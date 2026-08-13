@@ -637,6 +637,9 @@ impl Calculator {
     async fn global_shortcuts(mut sender: Sender<CalculatorMessage>) {
         let connection = Connection::session().await.unwrap();
 
+        let registry = RegistryProxy::new(&connection).await.unwrap();
+        registry.register("shell", HashMap::new()).await.unwrap();
+
         let shortcuts = GlobalShortcutsProxy::new(&connection).await.unwrap();
         let name = connection
             .unique_name()
@@ -711,6 +714,19 @@ impl Debug for Calculator {
             .field("results", &self.results)
             .finish()
     }
+}
+
+#[proxy(
+    default_service = "org.freedesktop.portal.Desktop",
+    default_path = "/org/freedesktop/portal/desktop",
+    interface = "org.freedesktop.host.portal.Registry"
+)]
+pub trait Registry {
+    fn register(
+        &self,
+        app_id: &str,
+        options: HashMap<&str, &zvariant::Value<'_>>,
+    ) -> zbus::Result<()>;
 }
 
 #[proxy(
